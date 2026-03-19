@@ -1,0 +1,6 @@
+# Repo-local Codex config for the hosted Notion MCP server.
+# When Codex is launched from this repository, it can use this server directly.
+
+[mcp_servers.notion]
+url = "https://mcp.notion.com/mcp"
+
