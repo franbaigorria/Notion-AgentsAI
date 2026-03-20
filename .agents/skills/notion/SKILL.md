@@ -7,6 +7,17 @@ description: General-purpose Notion workspace operations for Codex. Use when the
 
 This skill is the Codex-native entry point for working with Notion through the hosted `notion` MCP server.
 
+## Workspace Location (read this first)
+
+Before searching or creating anything in Notion, read [`workspace/notion-context.md`](../../../workspace/notion-context.md). It contains:
+
+- Which teamspace holds our data (Agent AI)
+- Database IDs and URLs (Ideas DB, etc.)
+- Where to save new content
+- How to avoid creating orphaned pages
+
+**Do not search the entire workspace.** Start from the Agent AI teamspace.
+
 Use it when the user wants to:
 
 - Search their Notion workspace

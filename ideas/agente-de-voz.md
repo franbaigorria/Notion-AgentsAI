@@ -112,3 +112,47 @@ Agente de voz con acento argentino, capaz de responder de forma fluida sobre dat
 - Define a success metric for the MVP.
 - Test with a small set of real conversations and a constrained knowledge base.
 - Validate whether the value is stronger in support, follow-up, or sales before broadening scope.
+
+---
+
+## Unsloth - Evaluación Técnica (2026-03-20)
+
+### Qué es
+
+Unsloth es una librería open-source para fine-tuning e inference local de modelos de lenguaje. Entrena modelos ~2x más rápido con ~70% menos VRAM, sin pérdida de precisión. Soporta TTS, visión, embeddings, RL, y 500+ modelos (Llama, Qwen, Mistral, Gemma, Phi, etc.). Tiene una UI propia (Unsloth Studio) y exporta a GGUF.
+
+### Relevancia para esta idea
+
+| Capa del agente | Cómo encaja Unsloth |
+|---|---|
+| Voz (TTS) | Fine-tuning de modelos TTS para lograr acento argentino específico |
+| Lenguaje | Fine-tuning de LLM pequeño para tono, vocabulario y comportamiento del dominio (soporte/ventas) |
+| RAG | Unsloth afirma que fine-tuning puede replicar las capacidades de RAG para conocimiento estático |
+| Costo | Inference local reduce costo por conversación vs depender de APIs externas |
+| Latencia | Modelos locales eliminan roundtrips a APIs, clave para voz en tiempo real |
+
+### Stack sugerido con Unsloth
+
+1. **MVP (validación)**: APIs externas (OpenAI/Anthropic para LLM + ElevenLabs para TTS) → rápido de lanzar, bajo riesgo
+2. **Fase 2 (diferenciación)**: Unsloth fine-tune de un modelo pequeño (Qwen3-8B o similar) para el dominio específico
+3. **Fase 3 (escala)**: Unsloth fine-tune de modelo TTS para acento argentino + inference local para reducir costos
+
+### Consideraciones
+
+**Pros:**
+- Control total sobre el modelo, sin vendor lock-in
+- El moat real del producto estaría en el fine-tuning (tono, acento, conocimiento de dominio)
+- Costo operativo más bajo a escala vs APIs por conversación
+- Soporte nativo para TTS fine-tuning = directamente aplicable al acento argentino
+- Colabora oficialmente con los equipos de Qwen, Llama, Mistral, Gemma
+- Open-source, sin licencias comerciales restrictivas
+
+**Contras:**
+- Requiere infraestructura GPU propia o deployment en cloud (costo fijo inicial)
+- Para el MVP, es over-engineering: un agente con APIs valida más rápido
+- Fine-tuning de TTS para un acento específico puede requerir datasets de audio curados
+- Mantener modelos propios agrega complejidad operativa vs usar APIs
+
+### Recomendación
+
+No usar Unsloth para el MVP. Validar primero con APIs que el mercado quiere un agente de voz. Una vez validado, Unsloth es la herramienta ideal para construir el diferenciador técnico (acento, tono, conocimiento) y reducir costos a escala. Es el camino correcto para convertir "agente genérico con API" en "producto con moat defensible".

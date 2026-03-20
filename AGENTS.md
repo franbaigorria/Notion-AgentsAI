@@ -2,6 +2,10 @@
 
 This repository packages a Codex-native Notion workflow centered on founder idea capture and repo kickoffs.
 
+## Before You Start
+
+**Read [`workspace/notion-context.md`](workspace/notion-context.md)** to know where everything lives in Notion. All our data is in the **Agent AI** teamspace. If you can't see it, ask the user to invite you.
+
 ## Use These Skills
 
 - Shared skills live in `.agents/skills/notion/`.

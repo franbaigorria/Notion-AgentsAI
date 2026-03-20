@@ -49,11 +49,13 @@ Avoid turning early ideas into bloated strategy documents.
 
 ### 3. Save in Notion
 
+**Always save to the Ideas database in the Agent AI teamspace.** See [`workspace/notion-context.md`](../../../workspace/notion-context.md) for the database ID and URL.
+
 Prefer this order:
 
-1. If an ideas database exists, add a row there.
-2. If the idea needs more detail, create or update a linked page.
-3. If there is no ideas database yet, create a structured page first and suggest creating the database soon.
+1. Add a row to the Ideas database (ID: `a8ee2ffddc494d778c969d984c6c3386`).
+2. If the idea needs more detail, create or update a linked page under the same teamspace.
+3. If the database is not accessible, create a structured page first and ask the user to check permissions.
 
 Use [`templates/notion-ideas-database-schema.md`](../../../../templates/notion-ideas-database-schema.md) as the default schema for an ideas database.
 

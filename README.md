@@ -4,11 +4,20 @@ This repository is now optimized for one job: helping founders capture raw AI pr
 
 ## What This Repo Keeps
 
+- **Notion workspace context** in [`workspace/notion-context.md`](workspace/notion-context.md) — tells agents where to find databases and pages
 - Repo-local Notion MCP configuration in [`.codex/config.toml`](.codex/config.toml)
 - Shared Notion skills in [`.agents/skills/notion`](.agents/skills/notion)
 - A founder-specific workflow skill in [`.agents/skills/notion-founder-workflow/SKILL.md`](.agents/skills/notion-founder-workflow/SKILL.md)
 - Reusable templates in [`templates/`](templates)
 - Example captured ideas in [`ideas/`](ideas)
+
+## Notion Setup
+
+All data lives in the **Agent AI** teamspace in Notion. Before using this repo:
+
+1. Make sure you have access to the Agent AI teamspace (ask the owner to invite you)
+2. Authenticate the Notion MCP: `opencode mcp auth notion` (or `codex mcp login notion`)
+3. Read [`workspace/notion-context.md`](workspace/notion-context.md) to understand the structure
 
 ## What We Removed
 
