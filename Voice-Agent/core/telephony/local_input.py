@@ -17,8 +17,8 @@ class LocalInput(TelephonyProvider):
                 text = await asyncio.to_thread(input, "\n> ")
                 if text.strip():
                     yield text.strip()
-            except EOFError:
-                break
+            except (EOFError, asyncio.CancelledError):
+                return
 
     async def play_audio(self, audio: bytes) -> None:
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
