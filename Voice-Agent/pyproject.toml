@@ -10,6 +10,8 @@ dependencies = [
     "openai>=1.0",
     "elevenlabs>=1.0",
     "python-dotenv>=1.0",
+    "sounddevice>=0.4",
+    "numpy>=1.24",
 ]
 
 [dependency-groups]

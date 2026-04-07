@@ -20,17 +20,19 @@ async def main() -> None:
 
     from core.llm.openai_llm import OpenAILLM
     from core.orchestrator.pipeline import VoicePipeline
+    from core.stt.whisper_stt import WhisperSTT
     from core.telephony.local_input import LocalInput
     from core.tts.elevenlabs_tts import ElevenLabsTTS
 
     llm = OpenAILLM(api_key=os.environ["OPENAI_API_KEY"])
+    stt = WhisperSTT(api_key=os.environ["OPENAI_API_KEY"])
     tts = ElevenLabsTTS(
         api_key=os.environ["ELEVENLABS_API_KEY"],
         voice_id=os.environ["ELEVENLABS_VOICE_ID"],
     )
     telephony = LocalInput()
 
-    pipeline = VoicePipeline(llm=llm, tts=tts, telephony=telephony)
+    pipeline = VoicePipeline(llm=llm, tts=tts, telephony=telephony, stt=stt)
     await pipeline.run()
 
 

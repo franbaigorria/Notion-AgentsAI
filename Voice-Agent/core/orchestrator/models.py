@@ -13,6 +13,9 @@ class TurnTrace:
     tts_cost_usd: float
     total_latency_ms: float
     total_cost_usd: float
+    stt_provider: str | None = None
+    stt_latency_ms: float | None = None
+    stt_cost_usd: float | None = None
 
 
 @dataclass
