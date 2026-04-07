@@ -12,7 +12,7 @@ from .base import TelephonyProvider
 SAMPLE_RATE = 16_000
 CHUNK = 1024
 SILENCE_THRESHOLD = 500
-SILENCE_CHUNKS = int(1.5 * SAMPLE_RATE / CHUNK)  # ~1.5 segundos de silencio
+SILENCE_CHUNKS = int(0.8 * SAMPLE_RATE / CHUNK)  # ~0.8 segundos de silencio
 
 
 class LocalInput(TelephonyProvider):
