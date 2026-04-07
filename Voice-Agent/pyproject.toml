@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "sounddevice>=0.4",
     "numpy>=1.24",
+    "deepgram-sdk>=3.0",
 ]
 
 [dependency-groups]

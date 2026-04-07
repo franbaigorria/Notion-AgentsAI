@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 def check_env() -> None:
     load_dotenv()
-    required = ["OPENAI_API_KEY", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"]
+    required = ["OPENAI_API_KEY", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID", "DEEPGRAM_API_KEY"]
     missing = [v for v in required if not os.getenv(v)]
     if missing:
         print(f"Error: faltan variables de entorno: {', '.join(missing)}")
@@ -20,12 +20,12 @@ async def main() -> None:
 
     from core.llm.openai_llm import OpenAILLM
     from core.orchestrator.pipeline import VoicePipeline
-    from core.stt.whisper_stt import WhisperSTT
+    from core.stt.deepgram_stt import DeepgramSTT
     from core.telephony.local_input import LocalInput
     from core.tts.elevenlabs_tts import ElevenLabsTTS
 
     llm = OpenAILLM(api_key=os.environ["OPENAI_API_KEY"])
-    stt = WhisperSTT(api_key=os.environ["OPENAI_API_KEY"])
+    stt = DeepgramSTT(api_key=os.environ["DEEPGRAM_API_KEY"])
     tts = ElevenLabsTTS(
         api_key=os.environ["ELEVENLABS_API_KEY"],
         voice_id=os.environ["ELEVENLABS_VOICE_ID"],
