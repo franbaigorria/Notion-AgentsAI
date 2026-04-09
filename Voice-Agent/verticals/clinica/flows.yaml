@@ -1,0 +1,46 @@
+# Flows de conversación — vertical clinica
+# Cada flow define los pasos y los triggers de escalación
+
+flows:
+
+  agendar_turno:
+    trigger: ["turno", "turno médico", "sacar turno", "reservar", "agenda", "quiero un turno"]
+    steps:
+      - detectar_especialidad: "¿Con qué especialidad necesitás el turno?"
+      - verificar_disponibilidad: consultar Google Calendar o Docplanner
+      - confirmar_datos: nombre, DNI, obra social
+      - agendar: crear evento con los datos del paciente
+      - confirmar: "Tu turno quedó agendado para el {fecha} a las {hora} con el/la Dr/a {apellido}."
+    escalate_if:
+      - especialidad no disponible en el sistema
+      - el paciente pide un médico específico no encontrado
+
+  consulta_cobertura:
+    trigger: ["cobertura", "obra social", "plan", "si cubre", "prepaga"]
+    steps:
+      - identificar_obra_social: ¿Qué obra social tenés? ¿Y el plan?
+      - buscar_en_kb: consultar base de conocimiento con obra_social + plan
+      - responder: informar qué cubre y qué no, con tope si corresponde
+    escalate_if:
+      - obra social no encontrada en KB
+      - rag_score < 0.7
+
+  info_general:
+    trigger: ["horario", "dónde están", "cómo llego", "dirección", "teléfono", "estacionamiento"]
+    steps:
+      - identificar_consulta: qué información específica necesita
+      - buscar_en_kb: consultar base de conocimiento
+      - responder: dar la información directamente
+    escalate_if:
+      - información no disponible en KB
+
+  reagendar_cancelar:
+    trigger: ["cancelar", "cambiar turno", "reagendar", "no puedo ir", "mover el turno"]
+    steps:
+      - identificar_turno: nombre + fecha aproximada o número de turno
+      - buscar_turno: consultar sistema de agenda
+      - acción: modificar o cancelar según pedido
+      - confirmar: informar el resultado
+    escalate_if:
+      - turno no encontrado en el sistema
+      - turno con menos de 2 horas de anticipación

@@ -1,0 +1,18 @@
+# Integraciones externas — vertical clinica
+
+integrations:
+
+  calendar:
+    provider: google_calendar  # google_calendar | docplanner
+    calendar_id: ""            # completar con ID del calendario de la clínica
+    fallback: docplanner       # si Google Calendar no responde, intentar Docplanner
+
+  notifications:
+    sms:
+      provider: twilio
+      enabled: true
+      on_booking: true         # enviar SMS al confirmar turno
+      on_cancellation: true    # enviar SMS al cancelar
+    whatsapp:
+      provider: twilio
+      enabled: false           # activar en Fase 2

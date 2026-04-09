@@ -1,0 +1,37 @@
+# Reglas de escalación — vertical clinica
+# El orquestador evalúa estas reglas en cada turno de la conversación (RQ-02).
+
+escalation:
+
+  triggers:
+    - id: usuario_pide_humano
+      condition: el usuario dice explícitamente que quiere hablar con una persona
+      phrases: ["quiero hablar con alguien", "pasame con una persona", "quiero hablar con un humano", "no quiero hablar con un robot"]
+
+    - id: emergencia_medica
+      condition: el usuario describe una emergencia médica
+      keywords: ["emergencia", "urgencia", "me duele mucho", "accidente", "no puedo respirar", "infarto", "ambulancia"]
+      action_override: derivar_urgente  # no esperar, actuar de inmediato
+
+    - id: rag_sin_resultado
+      condition: el RAG devuelve source=none
+      max_retries: 1             # intentar una vez con web search antes de escalar
+
+    - id: fuera_de_scope
+      condition: el tema detectado no pertenece a ningún flow definido
+      max_turns_without_resolution: 2
+
+    - id: sin_resolucion
+      condition: el agente no pudo resolver en N intentos
+      max_attempts: 3
+
+  handoff:
+    message: "Voy a pasarte con alguien del equipo, un momento."
+    notify_staff:
+      channel: whatsapp          # whatsapp | email | sms
+      include_summary: true      # incluir resumen de la conversación
+    transfer_call: true          # transferir la llamada vía Twilio
+    voicemail_fallback:
+      enabled: true
+      timeout_seconds: 30        # si no atienden en 30s, dejar mensaje
+      callback_sms: true         # enviar SMS de callback al paciente

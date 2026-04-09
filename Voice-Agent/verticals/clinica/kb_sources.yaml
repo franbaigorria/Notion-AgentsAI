@@ -1,0 +1,24 @@
+# Fuentes de conocimiento — vertical clinica
+# Estas fuentes se ingestán en la colección `kb` de Qdrant al hacer setup del vertical.
+
+sources:
+
+  - id: sitio_clinica
+    type: web_crawl
+    url: ""  # completar con URL real de la clínica
+    description: Información general de la clínica, servicios, especialidades, ubicación
+
+  - id: coberturas_pdf
+    type: pdf
+    path: ""  # completar con path al PDF de coberturas por obra social
+    description: Tablas de cobertura por obra social y plan
+
+  - id: aranceles_pdf
+    type: pdf
+    path: ""  # completar con path al PDF de aranceles
+    description: Precios de consulta por especialidad para pacientes sin cobertura
+
+  - id: preguntas_frecuentes
+    type: text
+    path: ""  # completar con path al archivo de FAQ
+    description: Preguntas frecuentes de pacientes sobre la clínica
