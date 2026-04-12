@@ -96,16 +96,12 @@ def build_llm(config: dict):
 def build_tts(config: dict):
     from core.tts.cartesia import CartesiaTTS
 
-    # Permite sobrescribir el voice_id desde variables de entorno de Railway
-    env_voice_id = os.environ.get("CARTESIA_VOICE_ID") or os.environ.get("ELEVENLABS_VOICE_ID")
-    voice_id = env_voice_id or config.get("voice_id", "")
-
     providers = {
         "deepgram": lambda: DeepgramTTS(
             model=config.get("tts_model", "aura-2-antonia-es"),
         ),
         "elevenlabs": lambda: ElevenLabsTTS(
-            voice_id=voice_id,
+            voice_id=os.environ.get("ELEVENLABS_VOICE_ID") or config.get("voice_id", ""),
             model=config.get("tts_model", "eleven_multilingual_v2"),
         ),
         "openai": lambda: OpenAITTS(
@@ -113,7 +109,7 @@ def build_tts(config: dict):
             model=config.get("tts_model", "gpt-4o-mini-tts"),
         ),
         "cartesia": lambda: CartesiaTTS(
-            voice_id=voice_id,
+            voice_id=os.environ.get("CARTESIA_VOICE_ID") or config.get("voice_id", ""),
             model=config.get("tts_model", "sonic-multilingual"),
         ),
     }
