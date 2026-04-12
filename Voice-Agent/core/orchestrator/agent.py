@@ -61,6 +61,7 @@ def build_stt(config: dict):
 
 def build_llm(config: dict):
     from core.llm.claude import ClaudeLLM
+    from core.llm.groq import GroqLLM
     from core.llm.ollama import OllamaLLM
     from core.llm.openai import OpenAILLM
 
@@ -68,6 +69,7 @@ def build_llm(config: dict):
         "claude": lambda: ClaudeLLM(model=config.get("llm_model", "claude-sonnet-4-6")),
         "openai": lambda: OpenAILLM(model=config.get("llm_model", "gpt-4o-mini")),
         "ollama": lambda: OllamaLLM(model=config.get("llm_model", "gemma4:e4b")),
+        "groq": lambda: GroqLLM(model=config.get("llm_model", "llama-3.1-8b-instant")),
     }
 
     name = config.get("llm_provider", "claude")
