@@ -6,7 +6,7 @@ from livekit.api import AccessToken, VideoGrants
 
 load_dotenv()
 
-room_name = "test-nanci"
+room_name = "test-nanci-2"
 identity = "tester"
 
 token = (
