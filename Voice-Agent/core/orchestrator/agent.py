@@ -82,6 +82,7 @@ def build_llm(config: dict):
 def build_tts(config: dict):
     from core.tts.deepgram import DeepgramTTS
     from core.tts.elevenlabs import ElevenLabsTTS
+    from core.tts.cartesia import CartesiaTTS
 
     providers = {
         "elevenlabs": lambda: ElevenLabsTTS(
@@ -90,6 +91,10 @@ def build_tts(config: dict):
         ),
         "deepgram": lambda: DeepgramTTS(
             model=config.get("tts_model", "aura-2-antonia-es"),
+        ),
+        "cartesia": lambda: CartesiaTTS(
+            voice_id=config["voice_id"],
+            model=config.get("tts_model", "sonic-multilingual"),
         ),
     }
 
