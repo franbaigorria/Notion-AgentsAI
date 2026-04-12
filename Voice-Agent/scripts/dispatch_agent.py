@@ -8,7 +8,7 @@ from livekit.api.agent_dispatch_service import AgentDispatchService
 
 load_dotenv()
 
-ROOM_NAME = "test-nanci-2"
+ROOM_NAME = "test-nanci-6"
 AGENT_NAME = "clinica"
 
 

@@ -10,7 +10,7 @@ La clínica cuenta con las siguientes especialidades:
 - **Pediatría** — Dr. Sebastián Molina. Turnos: lunes a viernes de 9 a 17 hs. Urgencias pediátricas hasta las 20 hs.
 - **Traumatología** — Dr. Lucas Fernández. Turnos: martes, jueves y sábados de 9 a 13 hs.
 - **Clínica médica / Medicina general** — Dra. Andrea Vidal. Turnos: lunes a viernes de 8 a 20 hs.
-- **Nutrición** — Lic. Romina Castro. Turnos: lunes, miércoles y viernes de 14 a 18 hs.
+- **Nutrición** — Lic. Romina Castro (nutricionista). Turnos: lunes, miércoles y viernes de 14 a 18 hs.
 - **Psicología** — Lic. Tomás Pereyra. Turnos: lunes a viernes de 10 a 19 hs.
 - **Oftalmología** — Dr. Ignacio Blanco. Turnos: miércoles y viernes de 9 a 13 hs.
 - **Otorrinolaringología (ORL)** — Dr. Gustavo Paredes. Turnos: martes y jueves de 10 a 14 hs.
@@ -54,18 +54,20 @@ Si tu cobertura no está en la lista, podés consultar en recepción — en algu
 
 ## Aranceles para pacientes particulares (sin obra social)
 
+IMPORTANTE: Todos los precios son en PESOS ARGENTINOS (ARS), no en dólares.
+
 Precios orientativos de consulta médica:
 
-- Consulta de clínica médica / medicina general: $12.000
-- Consulta de especialista: $18.000 – $22.000 (según especialidad)
-- Consulta pediátrica: $15.000
-- Consulta psicológica (50 min): $20.000
-- Ecografía abdominal: $28.000
-- Ecografía obstétrica: $25.000
-- Radiografía simple: $12.000
-- Análisis de laboratorio básico (hemograma + glucemia + orina): $18.000
+- Consulta de clínica médica / medicina general: 12.000 pesos
+- Consulta de especialista: entre 18.000 y 22.000 pesos (según especialidad)
+- Consulta pediátrica: 15.000 pesos
+- Consulta psicológica (50 min): 20.000 pesos
+- Ecografía abdominal: 28.000 pesos
+- Ecografía obstétrica: 25.000 pesos
+- Radiografía simple: 12.000 pesos
+- Análisis de laboratorio básico (hemograma + glucemia + orina): 18.000 pesos
 
-Los precios están expresados en pesos argentinos y pueden actualizarse. Consultar en recepción para valores vigentes.
+Los precios pueden actualizarse. Consultar en recepción para valores vigentes.
 
 ## Ubicación y cómo llegar
 
