@@ -6,14 +6,13 @@ flows:
   agendar_turno:
     trigger: ["turno", "turno médico", "sacar turno", "reservar", "agenda", "quiero un turno"]
     steps:
-      - detectar_especialidad: "¿Con qué especialidad necesitás el turno?"
-      - verificar_disponibilidad: consultar Google Calendar o Docplanner
-      - confirmar_datos: nombre, DNI, obra social
-      - agendar: crear evento con los datos del paciente
-      - confirmar: "Tu turno quedó agendado para el {fecha} a las {hora} con el/la Dr/a {apellido}."
+      - detectar_especialidad: "Preguntá con qué especialidad necesita el turno. Si pregunta cuáles hay, informá las disponibles desde la KB."
+      - confirmar_datos: "Pedí nombre completo, DNI y obra social (o si abona particular). Si ya los dio, no los vuelvas a pedir."
+      - proponer_horario: "Informá el horario disponible para esa especialidad según la KB (días y franja horaria del profesional). Preguntá si alguno le viene bien."
+      - confirmar_turno: "Confirmá el turno con los datos recolectados: especialidad, profesional, día/horario, nombre y DNI. Decile que el equipo va a enviarle una confirmación por mensaje."
     escalate_if:
-      - especialidad no disponible en el sistema
-      - el paciente pide un médico específico no encontrado
+      - el paciente pide una especialidad que no está disponible
+      - el paciente pide un médico específico y no está en la KB
 
   consulta_cobertura:
     trigger: ["cobertura", "obra social", "plan", "si cubre", "prepaga"]
@@ -37,10 +36,9 @@ flows:
   reagendar_cancelar:
     trigger: ["cancelar", "cambiar turno", "reagendar", "no puedo ir", "mover el turno"]
     steps:
-      - identificar_turno: nombre + fecha aproximada o número de turno
-      - buscar_turno: consultar sistema de agenda
-      - acción: modificar o cancelar según pedido
-      - confirmar: informar el resultado
+      - identificar_turno: "Pedí nombre completo y la fecha aproximada del turno que quiere modificar o cancelar."
+      - confirmar_accion: "Confirmá si quiere reagendar o cancelar. Si reagenda, preguntá qué día/horario le vendría mejor."
+      - registrar: "Informale que el pedido fue registrado y que el equipo administrativo va a confirmar el cambio o cancelación por mensaje en las próximas horas."
     escalate_if:
-      - turno no encontrado en el sistema
-      - turno con menos de 2 horas de anticipación
+      - el turno es en menos de 2 horas
+      - el paciente insiste en hablar con alguien del equipo

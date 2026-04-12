@@ -145,7 +145,7 @@ class _FakeRAG:
         self._context = context
         self.calls: list[str] = []
 
-    async def retrieve(self, query: str, vertical: str) -> RAGResult:
+    async def retrieve(self, query: str, vertical: str, score_threshold=None) -> RAGResult:
         self.calls.append(query)
         return RAGResult(
             context=self._context,

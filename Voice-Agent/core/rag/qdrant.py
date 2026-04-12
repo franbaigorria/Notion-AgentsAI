@@ -76,7 +76,7 @@ class QdrantRAG(RAGProvider):
         self._collections.add(collection)
         print(f"[RAG] Ingestados {len(chunks)} chunks de '{source_id}' → colección '{collection}'")
 
-    async def retrieve(self, query: str, vertical: str) -> RAGResult:
+    async def retrieve(self, query: str, vertical: str, score_threshold: float | None = None) -> RAGResult:
         """Busca los chunks más relevantes para la query en la KB del vertical."""
         collection = f"kb_{vertical}"
 
@@ -93,10 +93,11 @@ class QdrantRAG(RAGProvider):
             )
         latency_ms = (time.monotonic() - start) * 1000
 
-        if not results or results[0].score < _SCORE_THRESHOLD:
+        threshold = score_threshold if score_threshold is not None else _SCORE_THRESHOLD
+        if not results or results[0].score < threshold:
             return RAGResult(context="", score=0.0, source="none", latency_ms=latency_ms)
 
-        relevant = [r for r in results if r.score >= _SCORE_THRESHOLD]
+        relevant = [r for r in results if r.score >= threshold]
         context = "\n\n---\n\n".join(r.document for r in relevant)
 
         return RAGResult(
