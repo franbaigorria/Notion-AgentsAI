@@ -16,8 +16,9 @@ llm_model: llama-3.1-8b-instant
 # llm_model: gpt-4o-mini
 
 # Configuración Cartesia (Extrema Baja Latencia TTS)
-tts_provider: deepgram
-tts_model: aura-2-antonia-es
+tts_provider: elevenlabs
+voice_id: "7FWgFcfrZ8cVdbfxtLKk"
+tts_model: eleven_multilingual_v2
 
 # Alternativa: Deepgram Aura — inestable desde AR (280ms - 890ms TTFB) pero excelente en US-East
 # tts_provider: deepgram
