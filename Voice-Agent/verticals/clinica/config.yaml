@@ -8,8 +8,12 @@ language: es
 stt_provider: deepgram
 stt_model: nova-3
 
-llm_provider: ollama
-llm_model: gemma4:e4b
+llm_provider: openai
+llm_model: gpt-4o-mini
+
+# Alternativa local: gemma4:e4b vía Ollama
+# llm_provider: ollama
+# llm_model: gemma4:e4b
 
 # Alternativa: Deepgram Aura — inestable desde AR (280ms - 890ms TTFB)
 # tts_provider: deepgram
