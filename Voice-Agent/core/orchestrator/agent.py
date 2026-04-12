@@ -48,7 +48,16 @@ _VERTICALS_DIR = Path(__file__).parent.parent.parent / "verticals"
 
 
 def _load_rag(vertical: str):
-    """Carga el RAG si existe el directorio kb/. Retorna None si no hay KB."""
+    """Carga el RAG si existe el directorio kb/ Y RAG_ENABLED != false.
+
+    En Railway free tier (512MB RAM) usar RAG_ENABLED=false — el modelo de embeddings
+    pesa 570MB y el OOM killer mata el proceso antes de que Python pueda atrapar el error.
+    En ese caso la KB se inyecta estaticamente en el system prompt.
+    """
+    if os.environ.get("RAG_ENABLED", "true").lower() == "false":
+        print("[RAG] Desactivado por RAG_ENABLED=false, usando KB estatica")
+        return None
+
     kb_dir = _VERTICALS_DIR / vertical / "kb"
     if not kb_dir.exists() or not list(kb_dir.glob("*.md")):
         return None
