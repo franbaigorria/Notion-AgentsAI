@@ -1,7 +1,7 @@
 """Implementación de TTSProvider usando ElevenLabs.
 
 Proveedor primario por naturalidad en español rioplatense.
-Usa eleven_multilingual_v2 — mejor modelo para español latinoamericano.
+Usa eleven_flash_v2_5 — mejor balance latencia/calidad para conversacional.
 
 Uso en AgentSession (LiveKit Agents 1.x):
     tts = ElevenLabsTTS(voice_id="...")
@@ -28,7 +28,7 @@ class ElevenLabsTTS(TTSProvider):
     def __init__(
         self,
         voice_id: str,
-        model: str = "eleven_multilingual_v2",
+        model: str = "eleven_flash_v2_5",
     ):
         self.voice_id = voice_id
         self.model = model

@@ -21,6 +21,7 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
+from livekit.agents.metrics import log_metrics
 from livekit.plugins import silero
 
 load_dotenv()
@@ -60,10 +61,14 @@ def build_stt(config: dict):
 
 def build_llm(config: dict):
     from core.llm.claude import ClaudeLLM
+    from core.llm.ollama import OllamaLLM
+    from core.llm.openai import OpenAILLM
 
-    providers = {"claude": lambda: ClaudeLLM(
-        model=config.get("llm_model", "claude-sonnet-4-6"),
-    )}
+    providers = {
+        "claude": lambda: ClaudeLLM(model=config.get("llm_model", "claude-sonnet-4-6")),
+        "openai": lambda: OpenAILLM(model=config.get("llm_model", "gpt-4o-mini")),
+        "ollama": lambda: OllamaLLM(model=config.get("llm_model", "gemma4:e4b")),
+    }
 
     name = config.get("llm_provider", "claude")
     if name not in providers:
@@ -73,12 +78,18 @@ def build_llm(config: dict):
 
 
 def build_tts(config: dict):
+    from core.tts.deepgram import DeepgramTTS
     from core.tts.elevenlabs import ElevenLabsTTS
 
-    providers = {"elevenlabs": lambda: ElevenLabsTTS(
-        voice_id=config["voice_id"],
-        model=config.get("tts_model", "eleven_multilingual_v2"),
-    )}
+    providers = {
+        "elevenlabs": lambda: ElevenLabsTTS(
+            voice_id=config["voice_id"],
+            model=config.get("tts_model", "eleven_multilingual_v2"),
+        ),
+        "deepgram": lambda: DeepgramTTS(
+            model=config.get("tts_model", "aura-2-antonia-es"),
+        ),
+    }
 
     name = config.get("tts_provider", "elevenlabs")
     if name not in providers:
@@ -98,7 +109,10 @@ async def entrypoint(ctx: JobContext) -> None:
         stt=build_stt(config),
         llm=build_llm(config),
         tts=build_tts(config),
+        preemptive_generation=True,
     )
+
+    session.on("metrics_collected", lambda ev: log_metrics(ev.metrics))
 
     await session.start(
         agent=Agent(instructions=config["persona"]),
