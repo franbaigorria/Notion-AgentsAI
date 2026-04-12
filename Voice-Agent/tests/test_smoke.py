@@ -3,6 +3,7 @@
 Test 1: run_local con FakeLLMProvider — persona system prompt llega al LLM, stdout recibe respuesta.
 Test 2: ClaudeLLM.complete() con SDK mockeado via unittest.mock.
 Test 3: Decorator @track emite evento JSON con campos correctos.
+Test 4: run_local con RAG fake — contexto del RAG se inyecta en el system prompt.
 """
 
 import io
@@ -15,6 +16,7 @@ import pytest
 
 from core.llm.base import LLMContext, LLMResult, Message
 from core.observability.tracing import current_call_id, track
+from core.rag.base import RAGResult
 from tests.fakes import FakeLLMProvider
 
 
@@ -37,7 +39,8 @@ async def test_run_local_uses_persona_and_outputs_to_stdout(capsys):
         patch.object(local_mod, "ClaudeLLM", return_value=fake_llm),
         patch("core.telephony.local.sys.stdin", io.StringIO(user_input)),
     ):
-        await local_mod.run_local(vertical="clinica", mode="text")
+        # rag=False desactiva la carga del modelo real en tests
+        await local_mod.run_local(vertical="clinica", mode="text", rag=False)
 
     captured = capsys.readouterr()
     stdout_lines = [l for l in captured.out.strip().splitlines() if l]
@@ -128,3 +131,52 @@ async def test_track_decorator_emits_json_event(capsys):
     assert event["latency_ms"] == 42.0
     assert event["cost_usd"] == 0.0005
     assert "timestamp" in event
+
+
+# ---------------------------------------------------------------------------
+# Test 4: RAG inyecta contexto en el system prompt
+# ---------------------------------------------------------------------------
+
+
+class _FakeRAG:
+    """RAG fake que siempre retorna contexto canned."""
+
+    def __init__(self, context: str):
+        self._context = context
+        self.calls: list[str] = []
+
+    async def retrieve(self, query: str, vertical: str) -> RAGResult:
+        self.calls.append(query)
+        return RAGResult(
+            context=self._context,
+            score=0.92,
+            source="kb_local",
+            latency_ms=1.0,
+        )
+
+
+@pytest.mark.asyncio
+async def test_run_local_injects_rag_context_into_system_prompt(capsys):
+    """Cuando el RAG retorna contexto, debe inyectarse en el system prompt del LLM."""
+    from core.orchestrator import local as local_mod
+
+    fake_llm = FakeLLMProvider(response="Tenemos cardiología y ginecología.")
+    fake_rag = _FakeRAG(context="Especialidades: Cardiología, Ginecología, Pediatría.")
+
+    user_input = "qué especialidades tienen\n"
+
+    with (
+        patch.object(local_mod, "ClaudeLLM", return_value=fake_llm),
+        patch("core.telephony.local.sys.stdin", io.StringIO(user_input)),
+    ):
+        await local_mod.run_local(vertical="clinica", mode="text", rag=fake_rag)
+
+    # El RAG fue consultado con el input del usuario
+    assert len(fake_rag.calls) >= 1
+    assert "especialidades" in fake_rag.calls[0].lower()
+
+    # El sistema prompt del segundo llamado al LLM contiene el contexto del RAG
+    # (primer call = saludo sin RAG, segundo call = turno del usuario con RAG)
+    assert len(fake_llm.calls) >= 2
+    second_call: LLMContext = fake_llm.calls[1]
+    assert "Especialidades: Cardiología" in second_call.system
