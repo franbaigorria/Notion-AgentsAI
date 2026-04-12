@@ -38,7 +38,7 @@ class GroqLLM(LLMProvider):
             model=self.model,
             base_url="https://api.groq.com/openai/v1",
             api_key=self.api_key,
-            max_completion_tokens=150,  # Importante para voz
+            max_completion_tokens=400,  # suficiente para respuestas con datos de la clinica
         )
 
     async def complete(self, context: LLMContext) -> LLMResult:

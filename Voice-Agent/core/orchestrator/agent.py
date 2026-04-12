@@ -123,8 +123,9 @@ class RAGAgent(Agent):
         return (
             self._base_instructions
             + "\n\n--- Informacion oficial (fuente autorizada) ---\n"
-            "Usa esta informacion para responder. Es oficial y verificada. "
-            "Comparte datos exactamente como aparecen: numeros, horarios, precios.\n\n"
+            "IMPORTANTE: Solo podes mencionar especialidades, medicos, horarios y precios "
+            "que aparezcan EXACTAMENTE en este contexto. Si un dato no esta aqui, decis "
+            "'no tengo ese dato disponible ahora'. NUNCA inventes ni supongas datos.\n\n"
             + context
             + "\n--- Fin de informacion oficial ---"
         )
