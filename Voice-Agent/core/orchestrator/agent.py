@@ -55,7 +55,8 @@ def _load_rag(vertical: str):
     try:
         from core.rag.qdrant import QdrantRAG
         return QdrantRAG.from_kb_dir(kb_dir, vertical)
-    except ImportError:
+    except (ImportError, MemoryError, Exception) as e:
+        print(f"[RAG] No disponible ({type(e).__name__}), usando KB estatica en su lugar")
         return None
 
 
@@ -173,8 +174,22 @@ async def entrypoint(ctx: JobContext) -> None:
     config = load_vertical(vertical_name)
     rag = _load_rag(vertical_name)
 
+    # Si el RAG vectorial no esta disponible pero hay KB estatica, inyectarla en el persona
+    persona = config["persona"]
+    if not rag and config.get("kb_static"):
+        persona = (
+            persona
+            + "\n\n--- Informacion oficial (fuente autorizada) ---\n"
+            "IMPORTANTE: Solo podes mencionar especialidades, medicos, horarios y precios "
+            "que aparezcan EXACTAMENTE en este contexto. Si un dato no esta aqui, decis "
+            "'no tengo ese dato disponible ahora'. NUNCA inventes ni supongas datos.\n\n"
+            + config["kb_static"]
+            + "\n--- Fin de informacion oficial ---"
+        )
+        print(f"[RAG] Modo estatico: KB inyectada en system prompt ({len(config['kb_static'])} chars)")
+
     print(f"[Agent] Vertical: {vertical_name} | LLM: {config.get('llm_provider', 'groq')} | TTS: {config.get('tts_provider', 'deepgram')}")
-    print(f"[RAG] {'KB cargada' if rag else 'Sin KB'} para vertical '{vertical_name}'")
+    print(f"[RAG] {'KB vectorial cargada' if rag else 'KB estatica en prompt' if config.get('kb_static') else 'Sin KB'} para vertical '{vertical_name}'")
 
     await ctx.connect()
 
@@ -190,7 +205,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     await session.start(
         agent=RAGAgent(
-            instructions=config["persona"],
+            instructions=persona,
             rag=rag,
             vertical=vertical_name,
         ),
