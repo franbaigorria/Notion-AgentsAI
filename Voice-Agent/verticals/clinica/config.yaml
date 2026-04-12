@@ -15,18 +15,19 @@ llm_model: llama-3.1-8b-instant
 # llm_provider: openai
 # llm_model: gpt-4o-mini
 
+# Configuración ElevenLabs (Default)
+tts_provider: elevenlabs
+voice_id: "7FWgFcfrZ8cVdbfxtLKk"
+tts_model: eleven_multilingual_v2
+
 # Configuración Cartesia (Extrema Baja Latencia TTS)
-tts_provider: cartesia
-voice_id: "59b37da2-92ba-401a-9e4e-b1d16898d9bc"
-tts_model: sonic-multilingual
+# tts_provider: cartesia
+# voice_id: "59b37da2-92ba-401a-9e4e-b1d16898d9bc"
+# tts_model: sonic-multilingual
 
 # Alternativa: Deepgram Aura — inestable desde AR (280ms - 890ms TTFB) pero excelente en US-East
 # tts_provider: deepgram
 # tts_model: aura-2-antonia-es
-
-# tts_provider: elevenlabs
-# voice_id: "KuG3LGjEAnXuOUlTH5do"
-# tts_model: eleven_flash_v2_5
 
 # --- Saludo inicial ---
 greeting: "Saludá al paciente con calidez y preguntale en qué podés ayudarlo."
