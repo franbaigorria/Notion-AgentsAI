@@ -16,8 +16,11 @@ Uso directo (sin LiveKit, para RAG loop o tests):
 """
 
 import time
+from collections.abc import AsyncIterator
 
 from livekit.plugins import anthropic as lk_anthropic
+
+from core.observability.tracing import track
 
 from .base import LLMContext, LLMProvider, LLMResult
 
@@ -48,6 +51,7 @@ class ClaudeLLM(LLMProvider):
         """Retorna el plugin LiveKit para usar en AgentSession."""
         return lk_anthropic.LLM(model=self.model)
 
+    @track(provider="claude", operation="complete")
     async def complete(self, context: LLMContext) -> LLMResult:
         """Genera una respuesta usando la API de Anthropic directamente."""
         import anthropic
@@ -80,7 +84,33 @@ class ClaudeLLM(LLMProvider):
             provider="claude",
         )
 
+    async def stream(self, context: LLMContext) -> AsyncIterator[str]:
+        """Stream de tokens usando client.messages.stream().
+
+        Para direct-mode y futura acumulación por oración antes de TTS.
+        En AgentSession (LiveKit), el streaming lo maneja AgentSession nativamente
+        — este método NO es parte del hot path real-time.
+        """
+        import anthropic
+
+        client = anthropic.AsyncAnthropic()
+        messages = [{"role": m.role, "content": m.content} for m in context.messages]
+
+        async with client.messages.stream(
+            model=self.model,
+            max_tokens=1024,
+            system=context.system,
+            messages=messages,
+        ) as stream_ctx:
+            async for text in stream_ctx.text_stream:
+                yield text
+
     async def optimize_for_tts(self, text: str) -> LLMResult:
+        # Nota: optimize_for_tts() NO está en el hot path de LiveKit.
+        # El pipeline real-time usa AgentSession + livekit.plugins.anthropic nativamente.
+        # Las restricciones TTS-friendly (frases cortas, sin markdown, español rioplatense)
+        # ya están incorporadas en verticals/*/persona.md.
+        # Este método existe para uso directo (batch, RAG, tests).
         """Adapta texto para síntesis de voz. Implementa Agent 2 del patrón doble-agente."""
         from .base import Message
 

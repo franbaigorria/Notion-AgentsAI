@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 
 
@@ -37,6 +38,20 @@ class LLMProvider(ABC):
 
     @abstractmethod
     async def complete(self, context: LLMContext) -> LLMResult: ...
+
+    async def stream(self, context: LLMContext) -> "AsyncIterator[str]":
+        """Stream de tokens de respuesta. Default: no implementado.
+
+        No es @abstractmethod para no romper implementaciones existentes.
+        Usado en direct-mode. En el pipeline LiveKit el streaming lo maneja
+        AgentSession + livekit.plugins.anthropic nativamente.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} no implementa stream(). "
+            "Usar complete() o implementar stream() en la subclase."
+        )
+        # Necesario para que Python infiera el tipo AsyncIterator[str]
+        yield  # type: ignore[misc]
 
     @abstractmethod
     async def optimize_for_tts(self, text: str) -> LLMResult:

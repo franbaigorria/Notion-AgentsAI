@@ -16,31 +16,14 @@ Variables de entorno requeridas:
 """
 
 import os
-from pathlib import Path
 
-import yaml
 from dotenv import load_dotenv
 from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
 from livekit.plugins import silero
 
+from core.orchestrator.config import load_vertical  # noqa: F401 — re-export
+
 load_dotenv()
-
-VERTICALS_DIR = Path(__file__).parent.parent.parent / "verticals"
-
-
-def load_vertical(name: str) -> dict:
-    """Carga config.yaml y persona.md del vertical indicado."""
-    path = VERTICALS_DIR / name
-    if not path.exists():
-        raise FileNotFoundError(f"Vertical '{name}' no encontrado en {VERTICALS_DIR}")
-
-    with open(path / "config.yaml", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-
-    with open(path / "persona.md", encoding="utf-8") as f:
-        config["persona"] = f.read()
-
-    return config
 
 
 def build_stt(config: dict):

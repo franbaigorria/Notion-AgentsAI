@@ -16,6 +16,8 @@ import time
 
 from livekit.plugins import deepgram as lk_deepgram
 
+from core.observability.tracing import track
+
 from .base import STTProvider, STTResult
 
 # Precio Deepgram Nova-2 al momento de implementación
@@ -31,6 +33,7 @@ class DeepgramSTT(STTProvider):
         """Retorna el plugin LiveKit para usar en AgentSession."""
         return lk_deepgram.STT(model=self.model, language=self.language)
 
+    @track(provider="deepgram", operation="transcribe")
     async def transcribe(self, audio: bytes, language: str) -> STTResult:
         """Transcripción directa via API de Deepgram (sin LiveKit pipeline).
 
