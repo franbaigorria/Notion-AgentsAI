@@ -1,7 +1,7 @@
 # Configuración del vertical: Clínica / Consultorio privado
 # Documentación: verticals/clinica/README.md
 
-agent_name: Nanci
+agent_name: Asistente
 language: es
 
 # --- Providers (RQ-01: intercambiables por config) ---
