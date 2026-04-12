@@ -6,22 +6,13 @@ language: es
 
 # --- Providers (RQ-01: intercambiables por config) ---
 stt_provider: deepgram
-stt_model: nova-3
+stt_model: nova-2
 
 llm_provider: groq
 llm_model: llama-3.1-8b-instant
 
-# Alternativa cloud: API estándar de OpenAI 
-# llm_provider: openai
-# llm_model: gpt-4o-mini
-
-# Alternativa: Deepgram Aura — inestable desde AR (280ms - 890ms TTFB) pero excelente en US-East
 tts_provider: deepgram
 tts_model: aura-2-antonia-es
-
-# tts_provider: elevenlabs
-# voice_id: "KuG3LGjEAnXuOUlTH5do"
-# tts_model: eleven_flash_v2_5
 
 # --- Saludo inicial ---
 greeting: "Saludá al paciente con calidez y preguntale en qué podés ayudarlo."
