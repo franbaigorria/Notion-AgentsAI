@@ -739,6 +739,18 @@ wheels = [
 ]
 
 [[package]]
+name = "livekit-plugins-cartesia"
+version = "1.5.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "livekit-agents" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e0/97/e68a862d46eb10346eaeb77ef9b3f7884a52308aa4f10abc2118e54dbae1/livekit_plugins_cartesia-1.5.2.tar.gz", hash = "sha256:01fc7c37010a4836e1f02d86f662acb8388e852da8b14c24b69c79b5145d7a0c", size = 12786, upload-time = "2026-04-08T22:11:58.464Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/e0/78ec77dc3f23272b187dd4f5ebc8187bbcfdd90da81b9b6c6ce39d69bc8a/livekit_plugins_cartesia-1.5.2-py3-none-any.whl", hash = "sha256:9471bff200b385ea39c825f175c79aa92df1e54d20077ec851602fd4d897f30e", size = 15704, upload-time = "2026-04-08T22:11:57.282Z" },
+]
+
+[[package]]
 name = "livekit-plugins-deepgram"
 version = "1.5.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1704,6 +1716,7 @@ dependencies = [
     { name = "elevenlabs" },
     { name = "livekit-agents" },
     { name = "livekit-plugins-anthropic" },
+    { name = "livekit-plugins-cartesia" },
     { name = "livekit-plugins-deepgram" },
     { name = "livekit-plugins-elevenlabs" },
     { name = "livekit-plugins-openai" },
@@ -1726,6 +1739,7 @@ requires-dist = [
     { name = "elevenlabs", specifier = ">=1.0" },
     { name = "livekit-agents", specifier = ">=1.0,<2.0" },
     { name = "livekit-plugins-anthropic", specifier = ">=1.0,<2.0" },
+    { name = "livekit-plugins-cartesia", specifier = ">=1.0,<2.0" },
     { name = "livekit-plugins-deepgram", specifier = ">=1.0,<2.0" },
     { name = "livekit-plugins-elevenlabs", specifier = ">=1.0,<2.0" },
     { name = "livekit-plugins-openai", specifier = ">=1.0,<2.0" },
