@@ -48,10 +48,10 @@ voice_settings:
 # Alternativas TTS:
 #
 # ElevenLabs Flash (menor latencia, buena calidad):
-# tts_model: eleven_flash_v2_5
+tts_model: eleven_flash_v2_5
 #
-# ElevenLabs v3 (último modelo, testear calidad):
-tts_model: eleven_v3
+# ElevenLabs v3 (último modelo, testear calidad) NO soporta streaming:
+# tts_model: eleven_v3
 #
 # Cartesia Sonic (ultra baja latencia):
 # tts_provider: cartesia
