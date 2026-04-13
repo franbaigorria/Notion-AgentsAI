@@ -66,6 +66,24 @@ def build_stt(config: dict):
     return providers[name]().as_livekit_plugin()
 
 
+def is_realtime_mode(config: dict) -> bool:
+    """True si el modo es realtime (speech-to-speech, bypassea STT+TTS)."""
+    return config.get("mode", "pipeline") == "realtime"
+
+
+def build_realtime_llm(config: dict):
+    """Construye el modelo Realtime speech-to-speech de OpenAI."""
+    from core.llm.openai_realtime import OpenAIRealtime
+
+    realtime_cfg = config.get("realtime", {})
+    return OpenAIRealtime(
+        model=realtime_cfg.get("model", "gpt-4o-mini-realtime-preview"),
+        voice=realtime_cfg.get("voice", "ash"),
+        temperature=realtime_cfg.get("temperature"),
+        speed=realtime_cfg.get("speed"),
+    ).as_livekit_plugin()
+
+
 def build_llm(config: dict):
     from core.llm.claude import ClaudeLLM
     from core.llm.groq import GroqLLM
@@ -124,13 +142,26 @@ async def entrypoint(ctx: JobContext) -> None:
 
     await ctx.connect()
 
-    session = AgentSession(
-        vad=silero.VAD.load(),
-        stt=build_stt(config),
-        llm=build_llm(config),
-        tts=build_tts(config),
-        preemptive_generation=True,
-    )
+    if is_realtime_mode(config):
+        # Realtime: un único modelo speech-to-speech reemplaza STT + LLM + TTS
+        rt = config.get("realtime", {})
+        print(f"[MODE=realtime] model={rt.get('model')} voice={rt.get('voice')}")
+        session = AgentSession(llm=build_realtime_llm(config))
+    else:
+        # Pipeline clásico: STT → LLM → TTS
+        print(
+            f"[MODE=pipeline] "
+            f"STT={config.get('stt_provider')}/{config.get('stt_model')} "
+            f"LLM={config.get('llm_provider')}/{config.get('llm_model')} "
+            f"TTS={config.get('tts_provider')}/{config.get('tts_model')}"
+        )
+        session = AgentSession(
+            vad=silero.VAD.load(),
+            stt=build_stt(config),
+            llm=build_llm(config),
+            tts=build_tts(config),
+            preemptive_generation=True,
+        )
 
     session.on("metrics_collected", lambda ev: log_metrics(ev.metrics))
 

@@ -5,77 +5,86 @@ agent_name: Asistente
 language: es
 
 # ═══════════════════════════════════════════════════
-# STT — Speech-to-Text
+# MODO DE OPERACIÓN — switchea entre las 2 arquitecturas
+# ═══════════════════════════════════════════════════
+#
+# pipeline  → STT (Deepgram) → LLM (OpenAI) → TTS (ElevenLabs custom)
+#             - Voz custom argentina ✅
+#             - Latencia ~1.1s E2E
+#             - Costo ~$0.05/min
+#
+# realtime  → OpenAI speech-to-speech (gpt-4o-mini-realtime)
+#             - Voces OpenAI (no argentinas) ⚠️
+#             - Latencia ~500-800ms E2E
+#             - Costo ~$0.08-0.12/min
+#             - Interrupciones naturales, detecta tono
+
+# mode: pipeline
+mode: realtime
+
+# ═══════════════════════════════════════════════════
+# CONFIG DEL MODO PIPELINE (STT → LLM → TTS)
+# Solo se usa si mode: pipeline
 # ═══════════════════════════════════════════════════
 
+# --- STT ---
 stt_provider: deepgram
 stt_model: nova-3
-
-# Alternativa: ElevenLabs Scribe v2 (streaming WebSocket)
+# Alternativa: ElevenLabs Scribe (más lento, 1.7s+ delay, no recomendado)
 # stt_provider: elevenlabs
 # stt_model: scribe_v2_realtime
 
-# ═══════════════════════════════════════════════════
-# LLM — Modelo de lenguaje
-# ═══════════════════════════════════════════════════
-
-# Alternativa: Groq (ultra rápido pero rate limits bajos en free tier)
-# llm_provider: groq
-# llm_model: llama-3.1-8b-instant
-
-# OpenAI — gpt-4.1-nano es el más rápido de OpenAI (abril 2025)
-# Comparable a Llama 3.1 8B en velocidad, probablemente mejor en español
+# --- LLM ---
 llm_provider: openai
-llm_model: gpt-4.1-nano
+llm_model: gpt-4o-mini
+# Alternativas:
+# llm_provider: openai  ; llm_model: gpt-4.1-nano          # más rápido, menos consistente
+# llm_provider: groq    ; llm_model: llama-3.1-8b-instant  # ultra rápido, rate limit free
 
-# Alternativa OpenAI más balanceada (calidad/velocidad):
-# llm_model: gpt-4o-mini
-
-# ═══════════════════════════════════════════════════
-# TTS — Text-to-Speech
-# ═══════════════════════════════════════════════════
-
+# --- TTS ---
 tts_provider: elevenlabs
 voice_id: "7FWgFcfrZ8cVdbfxtLKk"
-# tts_model: eleven_multilingual_v2
+tts_model: eleven_flash_v2_5
+# Alternativas:
+# tts_model: eleven_multilingual_v2   # mejor calidad, más latencia
+# tts_provider: cartesia ; tts_model: sonic-multilingual   # ultra baja latencia
+# tts_provider: deepgram ; tts_model: aura-2-antonia-es    # solo funciona bien en US-East
 
-# Voice settings — tuning fino de la voz
-# stability:        0.0 (expresivo) → 1.0 (estable). Más bajo = más emotivo.
-# similarity_boost: 0.0 (variado) → 1.0 (fiel al original). Más alto = más parecido a la voz base.
-# style:            0.0 (neutro) → 1.0 (estilizado). Más alto = más "actuado".
-# speed:            0.7 (lento) → 1.3 (rápido). 1.0 = velocidad natural.
+# Voice settings (ElevenLabs) — tuning fino
+# stability:        0.0 (expresivo) → 1.0 (estable)
+# similarity_boost: 0.0 (variado) → 1.0 (fiel al original)
+# style:            0.0 (neutro) → 1.0 (estilizado)
+# speed:            0.7 (lento) → 1.3 (rápido)
 voice_settings:
   stability: 0.6
   similarity_boost: 0.8
   style: 0.15
   speed: 1.05
 
-# Text normalization — controla cómo se pronuncian números, siglas, abreviaciones.
-# "on"   = siempre normaliza ("OSDE 310" → "OSDE tres diez", "14:30" → "dos y media")
-# "auto" = el modelo decide (default)
+# Text normalization — cómo se pronuncian números/siglas
+# "on"   = siempre normaliza ("OSDE 310" → "OSDE tres diez")
+# "auto" = el modelo decide
 # "off"  = lee literal
 apply_text_normalization: "on"
 
-# Alternativas TTS:
-#
-# ElevenLabs Flash (menor latencia, buena calidad):
-tts_model: eleven_flash_v2_5
+# ═══════════════════════════════════════════════════
+# CONFIG DEL MODO REALTIME (speech-to-speech)
+# Solo se usa si mode: realtime
+# ═══════════════════════════════════════════════════
 
-#
-# ElevenLabs v3 (último modelo, testear calidad) NO soporta streaming:
-# tts_model: eleven_v3
-#
-# Cartesia Sonic (ultra baja latencia):
-# tts_provider: cartesia
-# voice_id: "59b37da2-92ba-401a-9e4e-b1d16898d9bc"
-# tts_model: sonic-multilingual
-#
-# Deepgram Aura (excelente en US-East, inestable desde AR):
-# tts_provider: deepgram
-# tts_model: aura-2-antonia-es
+realtime:
+  model: gpt-4o-mini-realtime-preview
+  # Voces disponibles: alloy, echo, shimmer, ash, ballad, coral, sage, verse
+  #   ash    → masculina, recomendada para recepcionista
+  #   verse  → masculina, expresiva
+  #   echo   → masculina, clásica
+  #   ballad → masculina, lírica
+  voice: ash
+  temperature: 0.7
+  speed: 1.0
 
 # ═══════════════════════════════════════════════════
-# Saludo inicial
+# Saludo inicial (ambos modos)
 # ═══════════════════════════════════════════════════
 
 greeting: "Saludá al paciente con calidez y preguntale en qué podés ayudarlo."
