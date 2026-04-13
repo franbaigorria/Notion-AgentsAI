@@ -19,11 +19,16 @@ stt_model: nova-3
 # LLM — Modelo de lenguaje
 # ═══════════════════════════════════════════════════
 
-llm_provider: groq
-llm_model: llama-3.1-8b-instant
+# Alternativa: Groq (ultra rápido pero rate limits bajos en free tier)
+# llm_provider: groq
+# llm_model: llama-3.1-8b-instant
 
-# Alternativa: OpenAI
-# llm_provider: openai
+# OpenAI — gpt-4.1-nano es el más rápido de OpenAI (abril 2025)
+# Comparable a Llama 3.1 8B en velocidad, probablemente mejor en español
+llm_provider: openai
+llm_model: gpt-4.1-nano
+
+# Alternativa OpenAI más balanceada (calidad/velocidad):
 # llm_model: gpt-4o-mini
 
 # ═══════════════════════════════════════════════════
