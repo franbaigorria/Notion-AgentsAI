@@ -46,11 +46,18 @@ def load_vertical(name: str) -> dict:
 
 def build_stt(config: dict):
     from core.stt.deepgram import DeepgramSTT
+    from core.stt.elevenlabs_stt import ElevenLabsSTT
 
-    providers = {"deepgram": lambda: DeepgramSTT(
-        model=config.get("stt_model", "nova-2"),
-        language=config.get("language", "es"),
-    )}
+    providers = {
+        "deepgram": lambda: DeepgramSTT(
+            model=config.get("stt_model", "nova-3"),
+            language=config.get("language", "es"),
+        ),
+        "elevenlabs": lambda: ElevenLabsSTT(
+            model=config.get("stt_model", "scribe_v2_realtime"),
+            language=config.get("language", "es"),
+        ),
+    }
 
     name = config.get("stt_provider", "deepgram")
     if name not in providers:
@@ -84,10 +91,15 @@ def build_tts(config: dict):
     from core.tts.elevenlabs import ElevenLabsTTS
     from core.tts.cartesia import CartesiaTTS
 
+    voice_settings = config.get("voice_settings", {})
     providers = {
         "elevenlabs": lambda: ElevenLabsTTS(
             voice_id=os.environ.get("ELEVENLABS_VOICE_ID") or config.get("voice_id", ""),
             model=config.get("tts_model", "eleven_multilingual_v2"),
+            stability=voice_settings.get("stability"),
+            similarity_boost=voice_settings.get("similarity_boost"),
+            style=voice_settings.get("style"),
+            speed=voice_settings.get("speed"),
         ),
         "deepgram": lambda: DeepgramTTS(
             model=config.get("tts_model", "aura-2-antonia-es"),

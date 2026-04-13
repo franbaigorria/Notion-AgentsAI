@@ -4,30 +4,66 @@
 agent_name: Asistente
 language: es
 
-# --- Providers (RQ-01: intercambiables por config) ---
-stt_provider: deepgram
-stt_model: nova-3
+# ═══════════════════════════════════════════════════
+# STT — Speech-to-Text
+# ═══════════════════════════════════════════════════
+
+# stt_provider: deepgram
+# stt_model: nova-3
+
+# Alternativa: ElevenLabs Scribe v2 (streaming WebSocket)
+stt_provider: elevenlabs
+stt_model: scribe_v2_realtime
+
+# ═══════════════════════════════════════════════════
+# LLM — Modelo de lenguaje
+# ═══════════════════════════════════════════════════
 
 llm_provider: groq
 llm_model: llama-3.1-8b-instant
 
-# Alternativa cloud: API estándar de OpenAI 
+# Alternativa: OpenAI
 # llm_provider: openai
 # llm_model: gpt-4o-mini
 
-# Configuración ElevenLabs (Default)
+# ═══════════════════════════════════════════════════
+# TTS — Text-to-Speech
+# ═══════════════════════════════════════════════════
+
 tts_provider: elevenlabs
 voice_id: "7FWgFcfrZ8cVdbfxtLKk"
 tts_model: eleven_multilingual_v2
 
-# Configuración Cartesia (Extrema Baja Latencia TTS)
+# Voice settings — tuning fino de la voz
+# stability:        0.0 (expresivo) → 1.0 (estable). Más bajo = más emotivo.
+# similarity_boost: 0.0 (variado) → 1.0 (fiel al original). Más alto = más parecido a la voz base.
+# style:            0.0 (neutro) → 1.0 (estilizado). Más alto = más "actuado".
+# speed:            0.7 (lento) → 1.3 (rápido). 1.0 = velocidad natural.
+voice_settings:
+  stability: 0.5
+  similarity_boost: 0.75
+  style: 0.0
+  speed: 1.0
+
+# Alternativas TTS:
+#
+# ElevenLabs Flash (menor latencia, buena calidad):
+# tts_model: eleven_flash_v2_5
+#
+# ElevenLabs v3 (último modelo, testear calidad):
+# tts_model: eleven_v3
+#
+# Cartesia Sonic (ultra baja latencia):
 # tts_provider: cartesia
 # voice_id: "59b37da2-92ba-401a-9e4e-b1d16898d9bc"
 # tts_model: sonic-multilingual
-
-# Alternativa: Deepgram Aura — inestable desde AR (280ms - 890ms TTFB) pero excelente en US-East
+#
+# Deepgram Aura (excelente en US-East, inestable desde AR):
 # tts_provider: deepgram
 # tts_model: aura-2-antonia-es
 
-# --- Saludo inicial ---
+# ═══════════════════════════════════════════════════
+# Saludo inicial
+# ═══════════════════════════════════════════════════
+
 greeting: "Saludá al paciente con calidez y preguntale en qué podés ayudarlo."
