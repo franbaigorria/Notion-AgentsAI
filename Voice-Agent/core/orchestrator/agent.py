@@ -1,18 +1,18 @@
-"""Orquestador principal — Voice Agent Platform.
+"""Shared builders — Voice Agent Platform.
 
-Carga la configuración del vertical y arranca un AgentSession de LiveKit.
+Funciones compartidas para cargar configuración del vertical y construir
+los componentes (STT, LLM, TTS, Realtime) que usan los agentes en apps/.
 
-Uso:
-    VERTICAL=clinica python -m core.orchestrator.agent dev
+Los entry points están en:
+    apps/pipeline/agent.py   — STT → LLM → TTS
+    apps/realtime/agent.py   — OpenAI Speech-to-Speech
+    apps/launcher.py         — Despacha según AGENT_MODE
 
 Variables de entorno requeridas:
     VERTICAL            nombre del directorio en verticals/ (default: clinica)
     LIVEKIT_URL         URL del servidor LiveKit
     LIVEKIT_API_KEY     API key de LiveKit
     LIVEKIT_API_SECRET  API secret de LiveKit
-    ANTHROPIC_API_KEY   API key de Anthropic
-    ELEVENLABS_API_KEY  API key de ElevenLabs
-    DEEPGRAM_API_KEY    API key de Deepgram
 """
 
 import os
@@ -20,9 +20,7 @@ from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
-from livekit.agents.metrics import log_metrics
-from livekit.plugins import silero
+
 
 load_dotenv()
 
@@ -46,17 +44,42 @@ def load_vertical(name: str) -> dict:
 
 def build_stt(config: dict):
     from core.stt.deepgram import DeepgramSTT
+    from core.stt.elevenlabs_stt import ElevenLabsSTT
 
-    providers = {"deepgram": lambda: DeepgramSTT(
-        model=config.get("stt_model", "nova-2"),
-        language=config.get("language", "es"),
-    )}
+    providers = {
+        "deepgram": lambda: DeepgramSTT(
+            model=config.get("stt_model", "nova-3"),
+            language=config.get("language", "es"),
+        ),
+        "elevenlabs": lambda: ElevenLabsSTT(
+            model=config.get("stt_model", "scribe_v2_realtime"),
+            language=config.get("language", "es"),
+        ),
+    }
 
     name = config.get("stt_provider", "deepgram")
     if name not in providers:
         raise ValueError(f"STT provider desconocido: '{name}'. Disponibles: {list(providers)}")
 
     return providers[name]().as_livekit_plugin()
+
+
+def is_realtime_mode(config: dict) -> bool:
+    """True si el modo es realtime (speech-to-speech, bypassea STT+TTS)."""
+    return config.get("mode", "pipeline") == "realtime"
+
+
+def build_realtime_llm(config: dict):
+    """Construye el modelo Realtime speech-to-speech de OpenAI."""
+    from core.llm.openai_realtime import OpenAIRealtime
+
+    realtime_cfg = config.get("realtime", {})
+    return OpenAIRealtime(
+        model=realtime_cfg.get("model", "gpt-4o-mini-realtime-preview"),
+        voice=realtime_cfg.get("voice", "ash"),
+        temperature=realtime_cfg.get("temperature"),
+        speed=realtime_cfg.get("speed"),
+    ).as_livekit_plugin()
 
 
 def build_llm(config: dict):
@@ -84,10 +107,16 @@ def build_tts(config: dict):
     from core.tts.elevenlabs import ElevenLabsTTS
     from core.tts.cartesia import CartesiaTTS
 
+    voice_settings = config.get("voice_settings", {})
     providers = {
         "elevenlabs": lambda: ElevenLabsTTS(
             voice_id=os.environ.get("ELEVENLABS_VOICE_ID") or config.get("voice_id", ""),
             model=config.get("tts_model", "eleven_multilingual_v2"),
+            stability=voice_settings.get("stability"),
+            similarity_boost=voice_settings.get("similarity_boost"),
+            style=voice_settings.get("style"),
+            speed=voice_settings.get("speed"),
+            apply_text_normalization=config.get("apply_text_normalization", "auto"),
         ),
         "deepgram": lambda: DeepgramTTS(
             model=config.get("tts_model", "aura-2-antonia-es"),
@@ -104,35 +133,3 @@ def build_tts(config: dict):
 
     return providers[name]().as_livekit_plugin()
 
-
-async def entrypoint(ctx: JobContext) -> None:
-    vertical_name = os.environ.get("VERTICAL", "clinica")
-    config = load_vertical(vertical_name)
-
-    await ctx.connect()
-
-    session = AgentSession(
-        vad=silero.VAD.load(),
-        stt=build_stt(config),
-        llm=build_llm(config),
-        tts=build_tts(config),
-        preemptive_generation=True,
-    )
-
-    session.on("metrics_collected", lambda ev: log_metrics(ev.metrics))
-
-    await session.start(
-        agent=Agent(instructions=config["persona"]),
-        room=ctx.room,
-    )
-
-    await session.generate_reply(
-        instructions=config.get(
-            "greeting",
-            "Saludá al usuario con calidez y preguntale en qué podés ayudarlo.",
-        )
-    )
-
-
-if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))

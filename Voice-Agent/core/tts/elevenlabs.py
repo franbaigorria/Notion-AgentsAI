@@ -1,10 +1,10 @@
 """Implementación de TTSProvider usando ElevenLabs.
 
 Proveedor primario por naturalidad en español rioplatense.
-Usa eleven_flash_v2_5 — mejor balance latencia/calidad para conversacional.
+Soporta VoiceSettings para tuning fino de estabilidad, estilo y velocidad.
 
 Uso en AgentSession (LiveKit Agents 1.x):
-    tts = ElevenLabsTTS(voice_id="...")
+    tts = ElevenLabsTTS(voice_id="...", model="eleven_flash_v2_5")
     session = AgentSession(tts=tts.as_livekit_plugin(), ...)
 
 Uso directo (sin LiveKit):
@@ -29,17 +29,42 @@ class ElevenLabsTTS(TTSProvider):
         self,
         voice_id: str,
         model: str = "eleven_flash_v2_5",
+        stability: float | None = None,
+        similarity_boost: float | None = None,
+        style: float | None = None,
+        speed: float | None = None,
+        apply_text_normalization: str = "auto",
     ):
         self.voice_id = voice_id
         self.model = model
+        self.stability = stability
+        self.similarity_boost = similarity_boost
+        self.style = style
+        self.speed = speed
+        self.apply_text_normalization = apply_text_normalization
+
+    def _build_voice_settings(self) -> lk_elevenlabs.VoiceSettings | None:
+        if self.stability is None and self.similarity_boost is None:
+            return None
+        return lk_elevenlabs.VoiceSettings(
+            stability=self.stability or 0.5,
+            similarity_boost=self.similarity_boost or 0.75,
+            style=self.style,
+            speed=self.speed,
+        )
 
     def as_livekit_plugin(self) -> lk_elevenlabs.TTS:
         """Retorna el plugin LiveKit para usar en AgentSession."""
-        return lk_elevenlabs.TTS(
-            api_key=os.environ["ELEVENLABS_API_KEY"],
-            voice_id=self.voice_id,
-            model=self.model,
-        )
+        voice_settings = self._build_voice_settings()
+        kwargs: dict = {
+            "api_key": os.environ["ELEVENLABS_API_KEY"],
+            "voice_id": self.voice_id,
+            "model": self.model,
+            "apply_text_normalization": self.apply_text_normalization,
+        }
+        if voice_settings is not None:
+            kwargs["voice_settings"] = voice_settings
+        return lk_elevenlabs.TTS(**kwargs)
 
     async def synthesize(self, text: str, voice_id: str) -> AsyncIterator[bytes]:
         """Síntesis directa via API de ElevenLabs como stream de bytes."""

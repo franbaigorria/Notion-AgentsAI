@@ -4,30 +4,76 @@
 agent_name: Asistente
 language: es
 
-# --- Providers (RQ-01: intercambiables por config) ---
+# ═══════════════════════════════════════════════════
+# MODO DE OPERACIÓN
+# ═══════════════════════════════════════════════════
+# Controlado por la env var AGENT_MODE (pipeline | realtime).
+# NO se define acá — se setea en Railway o en el entorno local.
+# Default: pipeline
+
+# ═══════════════════════════════════════════════════
+# CONFIG DEL MODO PIPELINE (STT → LLM → TTS)
+# Solo se usa si mode: pipeline
+# ═══════════════════════════════════════════════════
+
+# --- STT ---
 stt_provider: deepgram
 stt_model: nova-3
+# Alternativa: ElevenLabs Scribe (más lento, 1.7s+ delay, no recomendado)
+# stt_provider: elevenlabs
+# stt_model: scribe_v2_realtime
 
-llm_provider: groq
-llm_model: llama-3.1-8b-instant
+# --- LLM ---
+llm_provider: openai
+llm_model: gpt-5.4-nano
+# Alternativas:
+# llm_provider: openai  ; llm_model: gpt-4.1-nano          # más rápido, menos consistente
+# llm_provider: groq    ; llm_model: llama-3.1-8b-instant  # ultra rápido, rate limit free
 
-# Alternativa cloud: API estándar de OpenAI 
-# llm_provider: openai
-# llm_model: gpt-4o-mini
-
-# Configuración ElevenLabs (Default)
+# --- TTS ---
 tts_provider: elevenlabs
 voice_id: "7FWgFcfrZ8cVdbfxtLKk"
-tts_model: eleven_multilingual_v2
+tts_model: eleven_flash_v2_5
+# Alternativas:
+# tts_model: eleven_multilingual_v2   # mejor calidad, más latencia
+# tts_provider: cartesia ; tts_model: sonic-multilingual   # ultra baja latencia
+# tts_provider: deepgram ; tts_model: aura-2-antonia-es    # solo funciona bien en US-East
 
-# Configuración Cartesia (Extrema Baja Latencia TTS)
-# tts_provider: cartesia
-# voice_id: "59b37da2-92ba-401a-9e4e-b1d16898d9bc"
-# tts_model: sonic-multilingual
+# Voice settings (ElevenLabs) — tuning fino
+# stability:        0.0 (expresivo) → 1.0 (estable)
+# similarity_boost: 0.0 (variado) → 1.0 (fiel al original)
+# style:            0.0 (neutro) → 1.0 (estilizado)
+# speed:            0.7 (lento) → 1.3 (rápido)
+voice_settings:
+  stability: 0.6
+  similarity_boost: 0.8
+  style: 0.15
+  speed: 1.05
 
-# Alternativa: Deepgram Aura — inestable desde AR (280ms - 890ms TTFB) pero excelente en US-East
-# tts_provider: deepgram
-# tts_model: aura-2-antonia-es
+# Text normalization — cómo se pronuncian números/siglas
+# "on"   = siempre normaliza ("OSDE 310" → "OSDE tres diez")
+# "auto" = el modelo decide
+# "off"  = lee literal
+apply_text_normalization: "on"
 
-# --- Saludo inicial ---
+# ═══════════════════════════════════════════════════
+# CONFIG DEL MODO REALTIME (speech-to-speech)
+# Solo se usa si mode: realtime
+# ═══════════════════════════════════════════════════
+
+realtime:
+  model: gpt-4o-mini-realtime-preview
+  # Voces disponibles: alloy, echo, shimmer, ash, ballad, coral, sage, verse
+  #   ash    → masculina, recomendada para recepcionista
+  #   verse  → masculina, expresiva
+  #   echo   → masculina, clásica
+  #   ballad → masculina, lírica
+  voice: ash
+  temperature: 0.7
+  speed: 1.0
+
+# ═══════════════════════════════════════════════════
+# Saludo inicial (ambos modos)
+# ═══════════════════════════════════════════════════
+
 greeting: "Saludá al paciente con calidez y preguntale en qué podés ayudarlo."

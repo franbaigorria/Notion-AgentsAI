@@ -47,17 +47,20 @@ Esto permite lanzar un nuevo vertical en días, no semanas.
 
 | Capa | Tecnología | Estado |
 |------|------------|--------|
-| Voice pipeline | LiveKit Agents 1.x (WebRTC) | ✅ Producción en Railway US-East |
-| STT | Deepgram Nova-3 (streaming) | ✅ Producción |
-| LLM — conversación | Groq LPU / Llama 3.1 8B Instant (~100ms TTFT) | ✅ Producción |
-| LLM — razonamiento | o4-mini (OpenAI) — RAG + análisis | 🔜 Fase 2 |
-| TTS | ElevenLabs Multilingual v2 (voz custom AR) | ✅ Producción |
-| TTS — alternativas | Cartesia Sonic, Deepgram Aura-2 (testeados) | Evaluados, en reserva |
-| VAD | Silero VAD | ✅ Producción |
+| Voice framework | LiveKit Agents 1.x (WebRTC) | ✅ Producción en Railway US-East |
+| **Modo Pipeline** | STT → LLM → TTS | ✅ Producción |
+| ↳ STT | Deepgram Nova-3 (streaming) | ✅ Producción |
+| ↳ LLM | GPT-4o-mini (OpenAI) — ganador del benchmark | ✅ Producción |
+| ↳ TTS | ElevenLabs flash v2_5 (voz custom AR) | ✅ Producción |
+| ↳ VAD | Silero VAD | ✅ Producción |
+| **Modo Realtime** | gpt-4o-mini-realtime-preview (speech-to-speech) | ✅ Integrado, en evaluación |
+| Toggle entre modos | `mode: pipeline \| realtime` en config.yaml | ✅ Implementado |
+| Providers alternativos | Groq, Llama, Claude, Cartesia, Deepgram Aura | 🔬 Evaluados |
 | Hosting | Railway US-East (Docker, uv) | ✅ Producción |
-| Vector DB | Qdrant Cloud | 🔜 Fase 2 |
-| Embeddings | FastEmbed | 🔜 Fase 2 |
-| Ingesta de KB | Firecrawl (web) + LangChain (PDFs) | 🔜 Fase 2 |
+| Vector DB | Qdrant Cloud | 🔜 Fase 2 Track B |
+| Embeddings | FastEmbed | 🔜 Fase 2 Track B |
+| Ingesta de KB | Firecrawl (web) + LangChain (PDFs) | 🔜 Fase 2 Track B |
+| Tools / function calling | Compartido por ambos modos | 🔜 Fase 2 Track B |
 | Memoria entre sesiones | Mem0 + Qdrant | 🔜 Fase 4 |
 | Backend API | FastAPI (cuando haga falta dashboard) | 🔜 Fase 7 |
 
@@ -123,9 +126,40 @@ LiveKit Room (WebRTC)
 
 ---
 
-### Fase 2 — Voz natural + Multi-Agent RAG (actual)
+### Fase 2 — Voz natural + Arquitectura dual (actual)
 
-**Objetivo:** el agente suena humano (no robótico) Y conoce la clínica. Dos tracks en paralelo.
+**Objetivo:** el agente suena humano (no robótico) Y conoce la clínica. **Dos arquitecturas coexistiendo** + RAG.
+
+---
+
+#### Estrategia: dual-mode architecture
+
+Decisión arquitectónica tomada en esta fase: **soportar dos modos de operación** seleccionables por config para ofrecer un servicio adaptado al cliente.
+
+```yaml
+# verticals/<vertical>/config.yaml
+mode: pipeline   # o: realtime
+```
+
+| Modo | Stack | Ideal para |
+|------|-------|------------|
+| **`pipeline`** | Deepgram STT + GPT-4o-mini + ElevenLabs TTS custom | Clínicas argentinas, negocios locales — donde la voz nativa AR es diferenciador |
+| **`realtime`** | OpenAI gpt-4o-mini-realtime (speech-to-speech) | B2B, soporte técnico, casos donde velocidad > acento |
+
+**Latencia comparada (medida en producción):**
+- Pipeline: ~1.3s E2E (EOU 0.55 + STT 0.30 + LLM 0.35 + TTS 0.15)
+- Realtime: ~0.5s E2E (server-side VAD + TTFT 0.50)
+
+**Costo comparado:**
+- Pipeline: ~$0.05/min
+- Realtime: ~$0.08-0.12/min
+
+Ambos modos comparten:
+- Mismo persona.md (instrucciones del agente)
+- Mismas herramientas de RAG (tools)
+- Misma estructura de vertical adapter
+
+Solo cambia QUIÉN ejecuta el loop conversacional.
 
 ---
 
@@ -145,37 +179,36 @@ LiveKit Room (WebRTC)
 
 ---
 
-#### Track B: Multi-Agent RAG — filler + razonamiento
+#### Track B: RAG vía tools (unificado para ambos modos)
 
-**Problema:** cuando el paciente pregunta algo que requiere buscar (especialidades, horarios, cobertura), el agente necesita tiempo para pensar. Sin un patrón de filler, hay silencio incómodo. Sin RAG, inventa o dice "no sé".
+**Problema:** cuando el paciente pregunta algo que requiere buscar (especialidades, horarios, cobertura), el agente necesita acceder a la KB de la clínica. Sin RAG, inventa o dice "no sé".
 
-**Arquitectura multi-agente:**
-```
-Usuario: "¿Atienden OSDE 310 para traumatología?"
-  │
-  ├─→ Llama 3.1 (Groq, ~100ms)
-  │     → Detecta que necesita buscar
-  │     → Genera filler: "Dale, dejame chequear eso..."
-  │     → TTS → el usuario escucha inmediatamente
-  │
-  ├─→ [en paralelo] o4-mini (OpenAI)
-  │     → Query a Qdrant (KB de la clínica)
-  │     → Analiza contexto recuperado
-  │     → Genera respuesta concisa y precisa
-  │     → Devuelve a Llama
-  │
-  └─→ Llama 3.1 (Groq, ~100ms)
-        → Reformula para voz natural: "Sí, OSDE 310 tiene cobertura
-          para traumatología. El Dr. Méndez atiende lunes y miércoles
-          de 9 a 13. ¿Querés que te busque un turno?"
-        → TTS → respuesta final
+**Arquitectura (misma herramienta, dos modos de ejecución):**
+
+```python
+@function_tool
+async def search_clinica_kb(query: str) -> str:
+    """Busca info en la base de conocimiento de la clínica.
+
+    El modelo llama esta función cuando detecta que necesita datos
+    específicos (especialidades, médicos, cobertura, horarios).
+    """
+    # Qdrant + FastEmbed → retrieved context
+    return context
 ```
 
-**Decisiones clave:**
-- Llama 3.1 es la "cara" del agente — habla rápido, genera fillers, reformula para voz
-- o4-mini es el "cerebro" — busca en la KB, razona, pero nunca habla directo al paciente
-- Si Llama detecta que la pregunta NO necesita RAG (saludo, charla), responde directo sin o4-mini
-- El routing (¿necesita RAG o no?) lo hace Llama en el primer call
+**En modo `pipeline`:** GPT-4o-mini llama la tool cuando lo considera necesario. LiveKit Agents orquesta el tool-call round-trip.
+
+**En modo `realtime`:** gpt-4o-mini-realtime llama la tool nativamente — puede empezar a decir "dejame chequear eso..." en audio MIENTRAS la tool se ejecuta en paralelo. Todo en un solo modelo.
+
+**Por qué este diseño > multi-agente (la arquitectura anterior propuesta):**
+
+El plan original proponía un patrón "Llama filler + o4-mini RAG + Llama reformula". Esa complejidad venía de LIMITACIONES que ya no aplican:
+- Llama 3.1 8B era rápido pero flojo en español AR → reemplazado por GPT-4o-mini (mejor naturalidad)
+- La latencia de o4-mini obligaba a usar fillers → ya no son necesarios con Realtime o pipeline bien tuneado
+- Coordinar 2 modelos genera fallback paths complejos → tool calling nativo es simpler
+
+Nueva regla: **un solo modelo por request** (sea pipeline LLM o Realtime), con tools para acceso a data externa.
 
 **Fuentes de ingesta de KB (en orden de complejidad):**
 1. Web crawl del sitio de la clínica con Firecrawl
@@ -386,9 +419,10 @@ verticals/
 ```
 ✅ DONE    │ Fase 0: Cimientos (repo, providers, Railway deploy)
 ✅ DONE    │ Fase 1: Loop de voz (E2E ~250ms, 5x mejor que target)
- ► ACTUAL  │ Fase 2: Voz natural + Multi-Agent RAG
-           │   ├─ Track A: TTS tuning, argentino neutro
-           │   └─ Track B: Llama (filler) + o4-mini (RAG) + Llama (delivery)
+ ► ACTUAL  │ Fase 2: Voz natural + Arquitectura dual + RAG vía tools
+           │   ├─ Track A: TTS tuning + persona con ejemplos AR ✅ (en iteración)
+           │   ├─ Track B: RAG vía function tools (Qdrant + Firecrawl)
+           │   └─ Dual-mode: pipeline vs realtime, toggle por config ✅
            │ Fase 3: Flows de clínica (turnos, cobertura, info)
            │ Fase 4: Memoria entre sesiones (Mem0)
            │ Fase 5: Handoff a humano
@@ -396,6 +430,7 @@ verticals/
            │ Fase 7: Dashboard + facturación
            │
            ▼ Beta con cliente real de clínica → primer ingreso
+           ▼ Beta con cliente B2B → validar modo realtime
 ```
 
 ---
