@@ -55,12 +55,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
 
 def main():
-    cli.run_app(
-        WorkerOptions(
-            entrypoint_fnc=entrypoint,
-            agent_name="pipeline",
-        )
-    )
+    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
 
 
 if __name__ == "__main__":
