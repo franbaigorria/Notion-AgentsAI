@@ -15,11 +15,12 @@
 - ROI obvio para el cliente, conversación compleja para nosotros (especialidad + cobertura + disponibilidad + obras sociales)
 - Sin competidor dominante en Argentina todavía — Fonema AI es el más cercano pero es pan-LATAM desde México
 
-### Canal inicial: llamada telefónica (Twilio)
+### Canal inicial: LiveKit real-time voice (reemplazó a Twilio)
 
-- El canal más limpio para un voice agent puro
+- LiveKit Agents da un pipeline de voz real-time (STT→LLM→TTS) con latencia sub-300ms
+- WebRTC nativo — el audio viaja por streams, no por webhooks
+- Twilio queda como opción futura para telefonía PSTN (SIP trunk → LiveKit)
 - WhatsApp y web widget se agregan después con el mismo core
-- Twilio da número local argentino, webhook de entrada, y TTS/STT nativos si necesitamos fallback
 
 ### Modelo de negocio: por minuto
 
@@ -42,112 +43,165 @@ Esto permite lanzar un nuevo vertical en días, no semanas.
 
 ---
 
-## Stack técnico
+## Stack técnico (actualizado: refleja lo que está en producción)
 
-| Capa | Tecnología | Referencia de arquitectura |
-|------|------------|---------------------------|
-| Telefonía | Twilio (número local AR) | — |
-| STT | Whisper (OpenAI API) | Gap no resuelto en awesome-llm-apps |
-| LLM | Claude Sonnet / GPT-4o | Según latencia y costo en producción |
-| TTS | ElevenLabs (acento argentino) | Mejor calidad de voz para ES-AR |
-| Vector DB | Qdrant Cloud | customer_support_voice_agent + llm_app_personalized_memory |
-| Embeddings | FastEmbed | customer_support_voice_agent |
-| Ingesta de KB | Firecrawl (web) + LangChain (PDFs) | customer_support_voice_agent + voice_rag_openaisdk |
-| Memoria entre sesiones | Mem0 + Qdrant (misma instancia) | llm_app_personalized_memory |
-| RAG routing | Autonomous RAG pattern | autonomous_rag |
-| Orquestación multi-agente | OpenAI Agents SDK | ai_audio_tour_agent |
-| Backend | FastAPI (Python) | — |
-| Optimización de respuesta para TTS | Doble-agente (respuesta → optimización para voz) | voice_rag_openaisdk |
+| Capa | Tecnología | Estado |
+|------|------------|--------|
+| Voice pipeline | LiveKit Agents 1.x (WebRTC) | ✅ Producción en Railway US-East |
+| STT | Deepgram Nova-3 (streaming) | ✅ Producción |
+| LLM — conversación | Groq LPU / Llama 3.1 8B Instant (~100ms TTFT) | ✅ Producción |
+| LLM — razonamiento | o4-mini (OpenAI) — RAG + análisis | 🔜 Fase 2 |
+| TTS | ElevenLabs Multilingual v2 (voz custom AR) | ✅ Producción |
+| TTS — alternativas | Cartesia Sonic, Deepgram Aura-2 (testeados) | Evaluados, en reserva |
+| VAD | Silero VAD | ✅ Producción |
+| Hosting | Railway US-East (Docker, uv) | ✅ Producción |
+| Vector DB | Qdrant Cloud | 🔜 Fase 2 |
+| Embeddings | FastEmbed | 🔜 Fase 2 |
+| Ingesta de KB | Firecrawl (web) + LangChain (PDFs) | 🔜 Fase 2 |
+| Memoria entre sesiones | Mem0 + Qdrant | 🔜 Fase 4 |
+| Backend API | FastAPI (cuando haga falta dashboard) | 🔜 Fase 7 |
 
 ### Por qué este stack y no otro
 
-- **ElevenLabs sobre OpenAI TTS**: mejor naturalidad en español rioplatense. Es bloqueante para el producto.
-- **Qdrant para RAG + Mem0**: Mem0 usa Qdrant como backend de vector store — un solo servicio para dos funciones.
-- **FastEmbed**: embeddings locales, sin costo por llamada a API de embeddings.
-- **Autonomous RAG**: cuando el cliente no tiene la info en su KB, el agente busca en web antes de decir "no sé".
-- **Doble-agente para TTS**: el primer agente genera la respuesta correcta; el segundo la reformula para que suene natural hablada (sin bullets, sin markdown, frases cortas). Patrón del voice_rag_openaisdk.
-- **Unsloth**: reservado para Fase 3+ cuando haya validación de mercado. Fine-tuning de LLM y TTS para bajar costos y mejorar el moat. No tocar en MVP.
+- **LiveKit Agents sobre Twilio webhooks**: pipeline nativo de voz real-time con preemptive generation. Twilio requería STT→webhook→LLM→TTS→webhook — mucha latencia. LiveKit hace todo en-process.
+- **Groq LPU sobre GPT-4o/Claude para conversación**: ~100ms TTFT. Para la capa conversacional (fillers, respuestas rápidas) la velocidad es todo. La inteligencia pesada la pone o4-mini en la capa de razonamiento.
+- **Deepgram Nova-3 sobre Whisper**: streaming nativo, mejor latencia para real-time. Whisper es batch.
+- **ElevenLabs sobre otros TTS**: mejor naturalidad en español rioplatense después de testear Cartesia y Deepgram Aura.
+- **Railway US-East**: co-localizar el worker con LiveKit Cloud y los providers de API redujo E2E de ~1500ms a ~250ms. La latencia de red desde Argentina era el cuello de botella.
+- **Patrón multi-agente (Fase 2)**: Llama (rápido, filler) + o4-mini (inteligente, RAG) — el usuario nunca espera en silencio.
+- **Unsloth**: reservado para post-validación. Fine-tuning de LLM y TTS para bajar costos. No tocar en MVP.
 
 ---
 
 ## Fases del MVP
 
-### Fase 0 — Cimientos (Semana 1)
+### Fase 0 — Cimientos ✅ COMPLETADA
 
 **Objetivo:** entorno funcionando, sin una línea de producto todavía.
 
-**Tareas:**
-- [ ] Crear repositorio con estructura base (monorepo: `core/`, `verticals/`, `adapters/`, `dashboard/`)
-- [ ] Setup Twilio: número argentino, webhook configurado
-- [ ] Setup Qdrant Cloud: instancia con colecciones `kb` y `memory`
-- [ ] Setup ElevenLabs: voz argentina elegida y testeada
-- [ ] Setup OpenAI/Anthropic: keys, rate limits, costs estimados por conversación
-- [ ] Firecrawl: cuenta y primer crawl de prueba
-- [ ] FastAPI skeleton: health check, webhook de Twilio, estructura de rutas
-- [ ] `.env.example` con todas las variables necesarias
+**Lo que se hizo:**
+- [x] Repositorio con estructura base (`core/`, `verticals/`, `adapters/`, `dashboard/`, `tests/`)
+- [x] Setup ElevenLabs: voz argentina custom elegida y testeada (`7FWgFcfrZ8cVdbfxtLKk`)
+- [x] Setup Deepgram: API key, STT Nova-3 configurado
+- [x] Setup Groq: API key, Llama 3.1 8B Instant como LLM principal
+- [x] Setup Anthropic + OpenAI: keys configuradas como providers alternativos
+- [x] Vertical Adapter Pattern: `verticals/clinica/config.yaml` + `persona.md`
+- [x] `env.example` con todas las variables
+- [x] Dockerfile para deploy en Railway
 
-**Entregable:** llamar al número de Twilio → escuchar "Hola, soy [nombre del agente]" con voz de ElevenLabs.
+**Cambios vs plan original:** Twilio reemplazado por LiveKit. FastAPI no fue necesario — LiveKit Agents maneja el pipeline directamente. Qdrant y Firecrawl se mueven a Fase 2 (RAG).
 
 ---
 
-### Fase 1 — Loop de voz central (Semana 2-3)
+### Fase 1 — Loop de voz central ✅ COMPLETADA
 
 **Objetivo:** la conversación de voz funciona end-to-end, sin RAG todavía.
 
-**Flujo completo:**
+**Flujo implementado:**
 ```
-Llamada entrante (Twilio)
-  → Whisper STT → texto del usuario
-  → GPT-4o / Claude → respuesta
-  → Agente optimizador → respuesta reformulada para voz
-  → ElevenLabs TTS → audio
-  → Twilio → reproduce al llamante
-  → [loop hasta que cuelga]
+LiveKit Room (WebRTC)
+  → Silero VAD (detección de voz)
+  → Deepgram Nova-3 STT (streaming)
+  → Groq LPU / Llama 3.1 8B (respuesta rápida)
+  → ElevenLabs TTS (voz argentina custom)
+  → LiveKit → audio al usuario
+  → [loop con preemptive_generation=True]
 ```
 
-**Tareas:**
-- [ ] Webhook de Twilio → stream de audio → Whisper STT
-- [ ] Prompt base del agente (personalidad, idioma, reglas de comportamiento)
-- [ ] Pipeline LLM → doble-agente (respuesta + optimización para TTS)
-- [ ] ElevenLabs TTS → stream de audio de vuelta a Twilio
-- [ ] Manejo de silencio, interrupciones y cuelgue
-- [ ] Latencia objetivo: < 1.5s entre que el usuario termina de hablar y el agente empieza
+**Lo que se hizo:**
+- [x] Pipeline LiveKit Agents: VAD → STT → LLM → TTS con preemptive generation
+- [x] Persona y prompt optimizados para voz masculina argentina neutra
+- [x] Múltiples providers testeados: STT (Deepgram), LLM (Claude, OpenAI, Groq, Ollama), TTS (ElevenLabs, Cartesia, Deepgram Aura)
+- [x] Métricas de LiveKit: TTFT, TTFB, EOU delay logueados por turno
+- [x] Deploy en Railway US-East: E2E ~250ms (objetivo original era <1.5s)
+- [x] Manejo de silencio e interrupciones via Silero VAD
 
-**Entregable:** mantener una conversación de 5 turnos sobre cualquier tema, con menos de 1.5s de latencia. La voz debe sonar natural.
-
-**Métricas de aceptación:**
-- Latencia P50 < 1.2s, P95 < 2s
-- La voz no suena robótica ni entrecortada
-- El agente no interrumpe al usuario
+**Métricas alcanzadas (superaron el objetivo):**
+- Latencia E2E ~250ms (objetivo era P50 < 1.2s) — **5x mejor que el target**
+- La voz suena natural con ElevenLabs custom
+- Preemptive generation elimina gaps entre turnos
 
 ---
 
-### Fase 2 — RAG: base de conocimiento de la clínica (Semana 3-4)
+### Fase 2 — Voz natural + Multi-Agent RAG (actual)
 
-**Objetivo:** el agente conoce la clínica. Sabe qué especialidades hay, qué médicos, qué horarios, qué obras sociales acepta.
+**Objetivo:** el agente suena humano (no robótico) Y conoce la clínica. Dos tracks en paralelo.
 
-**Fuentes de ingesta (en orden de complejidad):**
-1. Web crawl del sitio de la clínica con Firecrawl
-2. PDFs (listado de médicos, aranceles, cobertura por obra social)
-3. Datos estructurados via API (si la clínica tiene sistema de turnos: Docplanner, Medicloud, etc.)
+---
 
-**Autonomous RAG pattern:**
-```
-Pregunta del usuario
-  → búsqueda en KB local (Qdrant)
-  → ¿relevancia suficiente? → responde
-  → ¿no suficiente? → búsqueda web (DuckDuckGo/Tavily) → responde con cautela
-  → ¿sigue sin saber? → escala a humano
-```
+#### Track A: Voz natural — argentino neutro
+
+**Problema:** la voz funciona pero puede sonar artificial en entonación, ritmo, o elección de palabras. Queremos que la experiencia sea agradable — que el paciente no sienta que habla con un bot.
 
 **Tareas:**
-- [ ] Pipeline de ingesta: Firecrawl → LangChain → FastEmbed → Qdrant (colección `kb`)
-- [ ] Retrieval con scoring de relevancia
-- [ ] Prompt del agente actualizado: "Respondé solo con información que tenés. Si no sabés, decilo y ofrecé derivar."
-- [ ] Fallback a web search cuando KB local no tiene la info
-- [ ] Guardrails anti-alucinación: si el retrieved context no contiene la info, el agente dice "no tengo esa información" en vez de inventar
+- [ ] Tuning de ElevenLabs: ajustar stability, similarity_boost, style en la voz custom
+- [ ] Experimentar con voice settings por tipo de respuesta (saludo vs. info técnica vs. filler)
+- [ ] Optimizar persona.md: frases más cortas, ritmo conversacional, muletillas naturales ("mirá", "dale", "perfecto")
+- [ ] Testear output de Llama 3.1 para voz: que no genere markdown, bullets, ni frases largas
+- [ ] A/B entre ElevenLabs Multilingual v2 y Turbo v2.5 (menor latencia, ¿suficiente calidad?)
+- [ ] Definir criterios subjetivos de calidad: grabar 10 conversaciones, evaluar naturalidad 1-10
 
-**Entregable:** el agente puede responder correctamente el 90%+ de las preguntas frecuentes de una clínica real.
+**Entregable:** la voz suena a recepcionista real, no a asistente virtual.
+
+---
+
+#### Track B: Multi-Agent RAG — filler + razonamiento
+
+**Problema:** cuando el paciente pregunta algo que requiere buscar (especialidades, horarios, cobertura), el agente necesita tiempo para pensar. Sin un patrón de filler, hay silencio incómodo. Sin RAG, inventa o dice "no sé".
+
+**Arquitectura multi-agente:**
+```
+Usuario: "¿Atienden OSDE 310 para traumatología?"
+  │
+  ├─→ Llama 3.1 (Groq, ~100ms)
+  │     → Detecta que necesita buscar
+  │     → Genera filler: "Dale, dejame chequear eso..."
+  │     → TTS → el usuario escucha inmediatamente
+  │
+  ├─→ [en paralelo] o4-mini (OpenAI)
+  │     → Query a Qdrant (KB de la clínica)
+  │     → Analiza contexto recuperado
+  │     → Genera respuesta concisa y precisa
+  │     → Devuelve a Llama
+  │
+  └─→ Llama 3.1 (Groq, ~100ms)
+        → Reformula para voz natural: "Sí, OSDE 310 tiene cobertura
+          para traumatología. El Dr. Méndez atiende lunes y miércoles
+          de 9 a 13. ¿Querés que te busque un turno?"
+        → TTS → respuesta final
+```
+
+**Decisiones clave:**
+- Llama 3.1 es la "cara" del agente — habla rápido, genera fillers, reformula para voz
+- o4-mini es el "cerebro" — busca en la KB, razona, pero nunca habla directo al paciente
+- Si Llama detecta que la pregunta NO necesita RAG (saludo, charla), responde directo sin o4-mini
+- El routing (¿necesita RAG o no?) lo hace Llama en el primer call
+
+**Fuentes de ingesta de KB (en orden de complejidad):**
+1. Web crawl del sitio de la clínica con Firecrawl
+2. PDFs (listado de médicos, aranceles, cobertura por obra social)
+3. Datos estructurados via API (si la clínica tiene sistema, ej: Docplanner)
+
+**Tareas:**
+- [ ] Diseñar orquestación custom sobre LiveKit AgentSession (override del pipeline lineal)
+- [ ] Implementar router en Llama: clasificar intent → respuesta directa vs. RAG
+- [ ] Implementar filler generation: Llama genera acknowledgment mientras o4-mini trabaja
+- [ ] Pipeline de ingesta: Firecrawl → FastEmbed → Qdrant (colección `kb`)
+- [ ] Retrieval con scoring de relevancia desde o4-mini
+- [ ] Prompt de o4-mini: "Respondé SOLO con info del contexto. Si no está, decí que no la tenés."
+- [ ] Prompt de Llama (reformulación): "Reformulá para voz hablada. Frases cortas. Sin markdown."
+- [ ] Guardrails anti-alucinación: si el retrieved context no contiene la info → "no tengo esa información, ¿querés que te pase con alguien?"
+- [ ] Manejo de estado conversacional entre ambos modelos (historial compartido)
+- [ ] Tests E2E: preguntas con RAG, preguntas sin RAG, preguntas sin respuesta en KB
+
+**Entregable:** el agente puede responder el 90%+ de preguntas frecuentes de una clínica real, sin silencios incómodos, con voz natural.
+
+**Métricas de aceptación:**
+- Tiempo hasta primer audio (filler): < 500ms
+- Tiempo hasta respuesta completa (con RAG): < 3s
+- Precisión de respuestas RAG: > 90% en preguntas de test
+- Tasa de alucinación: < 2%
+- Naturalidad percibida de la voz: > 7/10 en evaluación subjetiva
 
 ---
 
@@ -315,28 +369,31 @@ verticals/
 
 ## Métricas de éxito del MVP
 
-| Métrica | Target |
-|---------|--------|
-| Latencia de respuesta P50 | < 1.2s |
-| Latencia de respuesta P95 | < 2.0s |
-| Tasa de resolución sin humano | > 80% |
-| Tasa de alucinación / respuesta incorrecta | < 2% |
-| NPS del paciente que usó el agente | > 7/10 |
-| Costo por minuto de conversación | < USD 0.15 (para vender a USD 0.25-0.30) |
+| Métrica | Target | Actual (Fase 1) |
+|---------|--------|-----------------|
+| Latencia E2E (respuesta directa) | < 500ms | ~250ms ✅ |
+| Latencia E2E (con RAG, incluye filler) | < 3s | 🔜 Fase 2 |
+| Tiempo hasta primer audio (filler) | < 500ms | 🔜 Fase 2 |
+| Tasa de resolución sin humano | > 80% | 🔜 Fase 3 |
+| Tasa de alucinación / respuesta incorrecta | < 2% | 🔜 Fase 2 |
+| NPS del paciente que usó el agente | > 7/10 | 🔜 Beta |
+| Costo por minuto de conversación | < USD 0.15 | Por medir |
 
 ---
 
 ## Roadmap visual
 
 ```
-Semana 1   │ Fase 0: Cimientos
-Semana 2-3 │ Fase 1: Loop de voz (end-to-end sin RAG)
-Semana 3-4 │ Fase 2: RAG + KB de la clínica
-Semana 4-5 │ Fase 3: Flows de clínica (turnos, cobertura, info)
-Semana 5-6 │ Fase 4: Memoria entre sesiones (Mem0)
-Semana 6   │ Fase 5: Handoff a humano
-Semana 7-8 │ Fase 6: Vertical Adapter (inmobiliaria como prueba)
-Semana 8-10│ Fase 7: Dashboard + facturación
+✅ DONE    │ Fase 0: Cimientos (repo, providers, Railway deploy)
+✅ DONE    │ Fase 1: Loop de voz (E2E ~250ms, 5x mejor que target)
+ ► ACTUAL  │ Fase 2: Voz natural + Multi-Agent RAG
+           │   ├─ Track A: TTS tuning, argentino neutro
+           │   └─ Track B: Llama (filler) + o4-mini (RAG) + Llama (delivery)
+           │ Fase 3: Flows de clínica (turnos, cobertura, info)
+           │ Fase 4: Memoria entre sesiones (Mem0)
+           │ Fase 5: Handoff a humano
+           │ Fase 6: Vertical Adapter (inmobiliaria como prueba)
+           │ Fase 7: Dashboard + facturación
            │
            ▼ Beta con cliente real de clínica → primer ingreso
 ```
@@ -346,29 +403,33 @@ Semana 8-10│ Fase 7: Dashboard + facturación
 ## Lo que NO hacemos en el MVP
 
 - Fine-tuning de LLM o TTS (Unsloth está reservado para escala, post-validación)
-- WhatsApp y web widget (el canal de voz por teléfono es suficiente para validar)
+- WhatsApp y web widget (voz primero, otros canales después)
 - Integración con sistemas de historia clínica (HIS/EMR)
 - Cierre de ventas complejas
 - Soporte multilingüe
 - Modelo de IA propio (usamos APIs)
+- Memoria entre sesiones (Fase 4 — primero que sepa de la clínica, después que recuerde pacientes)
 
 ---
 
-## Referencias técnicas (awesome-llm-apps)
+## Referencias técnicas
 
-| Patrón | Proyecto de referencia | Aplicación en nuestro stack |
-|--------|----------------------|----------------------------|
-| RAG sobre KB de cliente con Qdrant + Firecrawl | `customer_support_voice_agent` | Fase 2: ingesta de KB de la clínica |
-| Doble-agente para optimizar respuesta para TTS | `voice_rag_openaisdk` | Fase 1: pipeline de respuesta |
+| Patrón | Referencia | Aplicación en nuestro stack |
+|--------|-----------|----------------------------|
+| RAG sobre KB de cliente con Qdrant + Firecrawl | `customer_support_voice_agent` | Fase 2 Track B: ingesta de KB de la clínica |
+| Multi-agent: filler + background reasoning | Retell AI, Vapi (patrón de producción) | Fase 2 Track B: Llama filler + o4-mini RAG |
+| Doble-agente para optimizar respuesta para TTS | `voice_rag_openaisdk` | Fase 2: Llama reformula output de o4-mini para voz |
 | Memoria persistente con Mem0 + Qdrant | `llm_app_personalized_memory` | Fase 4: reconocimiento de pacientes |
 | RAG con fallback a web search | `autonomous_rag` | Fase 2: cuando KB local no tiene la info |
-| Orquestación multi-agente con OpenAI Agents SDK | `ai_audio_tour_agent` | Fase 3: agentes especializados por flow |
 | Corrective RAG (CRAG) | `corrective_rag` | Post-MVP: reducir errores en respuestas críticas |
-| RAG-as-a-service (Ragie.ai) | `rag-as-a-service` | Post-MVP: si queremos reducir infra propia |
+| LiveKit Agents pipeline customization | LiveKit docs | Fase 2: override de pipeline lineal para multi-agent |
 
 ---
 
 ## Próximo paso inmediato
 
-Arrancar la Fase 0: crear la estructura del repositorio y tener el entorno funcionando.
-La primera llamada al número de Twilio tiene que funcionar con voz de ElevenLabs antes de tocar ninguna otra cosa.
+Arrancar la Fase 2, dos tracks en paralelo:
+
+**Track A (Voz):** experimentar con voice settings de ElevenLabs y optimizar el persona.md para que el output de Llama sea naturalmente "hablable". Esto es iterativo — grabar, escuchar, ajustar.
+
+**Track B (Multi-Agent RAG):** diseñar la orquestación custom sobre LiveKit AgentSession. El primer paso concreto es implementar el router de intents en Llama (¿respuesta directa o necesita RAG?) y el mecanismo de filler + respuesta diferida. Una vez que eso funcione, conectar la pipeline de ingesta (Firecrawl → FastEmbed → Qdrant) y el razonamiento con o4-mini.
