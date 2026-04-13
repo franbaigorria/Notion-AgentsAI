@@ -18,5 +18,8 @@ RUN uv sync --frozen --no-dev --no-install-project
 # Copiamos el resto del codigo
 COPY . .
 
-# Comando de inicio del worker (usamos 'start' en vez de 'dev' para produccion)
-CMD ["uv", "run", "python", "-m", "core.orchestrator.agent", "start"]
+# Modo de operación: pipeline | realtime (override desde Railway env vars)
+ENV AGENT_MODE=pipeline
+
+# Comando de inicio — el launcher despacha al agente correcto según AGENT_MODE
+CMD ["uv", "run", "python", "-m", "apps.launcher", "start"]

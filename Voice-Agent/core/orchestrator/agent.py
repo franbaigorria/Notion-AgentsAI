@@ -1,18 +1,18 @@
-"""Orquestador principal — Voice Agent Platform.
+"""Shared builders — Voice Agent Platform.
 
-Carga la configuración del vertical y arranca un AgentSession de LiveKit.
+Funciones compartidas para cargar configuración del vertical y construir
+los componentes (STT, LLM, TTS, Realtime) que usan los agentes en apps/.
 
-Uso:
-    VERTICAL=clinica python -m core.orchestrator.agent dev
+Los entry points están en:
+    apps/pipeline/agent.py   — STT → LLM → TTS
+    apps/realtime/agent.py   — OpenAI Speech-to-Speech
+    apps/launcher.py         — Despacha según AGENT_MODE
 
 Variables de entorno requeridas:
     VERTICAL            nombre del directorio en verticals/ (default: clinica)
     LIVEKIT_URL         URL del servidor LiveKit
     LIVEKIT_API_KEY     API key de LiveKit
     LIVEKIT_API_SECRET  API secret de LiveKit
-    ANTHROPIC_API_KEY   API key de Anthropic
-    ELEVENLABS_API_KEY  API key de ElevenLabs
-    DEEPGRAM_API_KEY    API key de Deepgram
 """
 
 import os
@@ -20,9 +20,7 @@ from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
-from livekit.agents.metrics import log_metrics
-from livekit.plugins import silero
+
 
 load_dotenv()
 
@@ -135,48 +133,3 @@ def build_tts(config: dict):
 
     return providers[name]().as_livekit_plugin()
 
-
-async def entrypoint(ctx: JobContext) -> None:
-    vertical_name = os.environ.get("VERTICAL", "clinica")
-    config = load_vertical(vertical_name)
-
-    await ctx.connect()
-
-    if is_realtime_mode(config):
-        # Realtime: un único modelo speech-to-speech reemplaza STT + LLM + TTS
-        rt = config.get("realtime", {})
-        print(f"[MODE=realtime] model={rt.get('model')} voice={rt.get('voice')}")
-        session = AgentSession(llm=build_realtime_llm(config))
-    else:
-        # Pipeline clásico: STT → LLM → TTS
-        print(
-            f"[MODE=pipeline] "
-            f"STT={config.get('stt_provider')}/{config.get('stt_model')} "
-            f"LLM={config.get('llm_provider')}/{config.get('llm_model')} "
-            f"TTS={config.get('tts_provider')}/{config.get('tts_model')}"
-        )
-        session = AgentSession(
-            vad=silero.VAD.load(),
-            stt=build_stt(config),
-            llm=build_llm(config),
-            tts=build_tts(config),
-            preemptive_generation=True,
-        )
-
-    session.on("metrics_collected", lambda ev: log_metrics(ev.metrics))
-
-    await session.start(
-        agent=Agent(instructions=config["persona"]),
-        room=ctx.room,
-    )
-
-    await session.generate_reply(
-        instructions=config.get(
-            "greeting",
-            "Saludá al usuario con calidez y preguntale en qué podés ayudarlo.",
-        )
-    )
-
-
-if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
