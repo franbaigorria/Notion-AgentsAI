@@ -45,10 +45,17 @@ voice_settings:
   style: 0.15
   speed: 1.05
 
+# Text normalization — controla cómo se pronuncian números, siglas, abreviaciones.
+# "on"   = siempre normaliza ("OSDE 310" → "OSDE tres diez", "14:30" → "dos y media")
+# "auto" = el modelo decide (default)
+# "off"  = lee literal
+apply_text_normalization: "on"
+
 # Alternativas TTS:
 #
 # ElevenLabs Flash (menor latencia, buena calidad):
 tts_model: eleven_flash_v2_5
+
 #
 # ElevenLabs v3 (último modelo, testear calidad) NO soporta streaming:
 # tts_model: eleven_v3

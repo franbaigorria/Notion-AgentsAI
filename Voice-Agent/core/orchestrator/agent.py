@@ -100,6 +100,7 @@ def build_tts(config: dict):
             similarity_boost=voice_settings.get("similarity_boost"),
             style=voice_settings.get("style"),
             speed=voice_settings.get("speed"),
+            apply_text_normalization=config.get("apply_text_normalization", "auto"),
         ),
         "deepgram": lambda: DeepgramTTS(
             model=config.get("tts_model", "aura-2-antonia-es"),
