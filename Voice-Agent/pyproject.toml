@@ -7,11 +7,14 @@ dependencies = [
     # LiveKit Agents 1.x — pipeline de voz en tiempo real
     "livekit-agents>=1.0,<2.0",
     "livekit-plugins-anthropic>=1.0,<2.0",
+    "livekit-plugins-openai>=1.0,<2.0",
     "livekit-plugins-elevenlabs>=1.0,<2.0",
     "livekit-plugins-silero>=1.0,<2.0",
     "livekit-plugins-deepgram>=1.0,<2.0",
+    "livekit-plugins-cartesia>=1.0,<2.0",
     # SDKs directos — para transcripción/síntesis sin LiveKit pipeline
     "anthropic>=0.40",
+    "openai>=1.0",
     "elevenlabs>=1.0",
     # Configuración
     "python-dotenv>=1.0",

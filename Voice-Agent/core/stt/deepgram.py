@@ -1,7 +1,7 @@
-"""Implementación de STTProvider usando Deepgram Nova-2.
+"""Implementación de STTProvider usando Deepgram Nova-3.
 
 Proveedor primario para español argentino — mejor precisión y latencia
-que Whisper en español rioplatense según benchmarks internos.
+que Nova-2 y Whisper en español rioplatense.
 
 Uso en AgentSession (LiveKit Agents 1.x):
     stt = DeepgramSTT(language="es")

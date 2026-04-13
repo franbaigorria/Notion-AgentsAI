@@ -1,6 +1,6 @@
 # Skill Registry — voice-agent
 
-Generated: 2026-04-04
+Generated: 2026-04-12
 Project: voice-agent
 
 ## Convention Files
@@ -48,7 +48,18 @@ When working in this project and making decisions, discoveries, or agreeing on t
 4. Trigger: any decision made, tool evaluated, task agreed, experiment completed, or cost incurred
 
 ### sdd (all phases)
-- Strict TDD Mode: CONFIGURED enabled, UNAVAILABLE until pytest is added to the project
+- Strict TDD Mode: enabled (CLAUDE.md) — write tests BEFORE implementation
 - Persistence: engram
-- When test runner exists: write tests before implementation
+- Test runner: `uv run pytest` (pytest 8.x + pytest-asyncio, asyncio_mode=auto)
+- Linter: `uv run ruff check .` | Formatter: `uv run ruff format .`
+- No type checker configured (mypy/pyright not installed)
+- No coverage tool (pytest-cov not in dev deps)
 - Engram topic keys: `sdd-init/voice-agent`, `sdd/{change}/explore|proposal|spec|design|tasks|apply-progress|verify-report|archive-report`
+- Testing capabilities: `sdd/voice-agent/testing-capabilities`
+
+### project conventions
+- Stack: Python 3.11+, LiveKit Agents 1.x, uv package manager
+- Adapter Pattern: base.py ABCs por capa en `core/{stt,tts,llm,telephony}/base.py`
+- Vertical Config Pattern: YAML en `verticals/{nombre}/config.yaml` — sin código hardcodeado
+- Deepgram SDK v6: usar AsyncDeepgramClient + listen.v1.media (no el SDK v2 legacy)
+- line-length: 100, target: py311
