@@ -25,7 +25,7 @@ stt_model: nova-3
 
 # --- LLM ---
 llm_provider: openai
-llm_model: gpt-4o-nano
+llm_model: gpt-5.4-nano
 # Alternativas:
 # llm_provider: openai  ; llm_model: gpt-4.1-nano          # más rápido, menos consistente
 # llm_provider: groq    ; llm_model: llama-3.1-8b-instant  # ultra rápido, rate limit free
