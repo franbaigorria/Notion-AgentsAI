@@ -32,7 +32,7 @@ _TONE_MAP: dict[str, str] = {
     "serious":      "",              # ídem
 }
 
-_TONE_TAG_RE = re.compile(r'<tone:(\w+)>\s*')
+_TONE_TAG_RE = re.compile(r'</?tone:(\w+)>\s*')
 
 
 class FishSpeechTTS(TTSProvider, tts.TTS):

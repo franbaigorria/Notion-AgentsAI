@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 # ─── Tone tag utilities ────────────────────────────────────────────────────────
 
-_TONE_TAG_RE = re.compile(r'<tone:\w+>\s*')
+_TONE_TAG_RE = re.compile(r'</?tone:\w+>\s*')
 
 
 def strip_tone_tags(text: str) -> str:

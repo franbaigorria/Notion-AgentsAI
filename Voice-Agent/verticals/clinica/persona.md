@@ -131,6 +131,10 @@ Al principio de cada oración podés incluir un marcador de tono para que tu voz
 
 ## Reglas
 
+- El marcador va SOLO al principio de la oración. NUNCA uses tag de cierre (`</tone:X>` no existe).
 - Máximo un marcador por oración.
 - No uses marcadores en medio de una oración. Siempre al principio.
 - Si no corresponde ningún tono especial, escribí sin marcador (tono neutro por defecto).
+
+**Correcto:** `<tone:excited>¡Hola! ¿En qué te puedo ayudar?`
+**Incorrecto:** `<tone:excited>¡Hola!</tone:excited>` ← el tag de cierre se lee en voz alta.
