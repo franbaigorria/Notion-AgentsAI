@@ -7,7 +7,7 @@ class FishSpeechTTS(tts.TTS):
     def __init__(self, voice_id: str = "", model: str = ""):
         # Fish Audio uses standard 44.1kHz by default for audio generation
         super().__init__(
-            streaming_supported=False, 
+            capabilities=tts.TTSCapabilities(streaming=False),
             sample_rate=44100, 
             num_channels=1
         )
@@ -18,6 +18,9 @@ class FishSpeechTTS(tts.TTS):
 
     def synthesize(self, text: str) -> tts.ChunkedStream:
         return _FishChunkedStream(text, self)
+        
+    def as_livekit_plugin(self) -> tts.TTS:
+        return self
 
 class _FishChunkedStream(tts.ChunkedStream):
     def __init__(self, text: str, tts_instance: FishSpeechTTS):
