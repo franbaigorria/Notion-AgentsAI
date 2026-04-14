@@ -17,14 +17,14 @@ language: es
 # ═══════════════════════════════════════════════════
 
 # --- STT ---
-stt_provider: deepgram
-stt_model: nova-3
+# stt_provider: deepgram
+# stt_model: nova-3
 # Alternativa: ElevenLabs Scribe (más lento, 1.7s+ delay, no recomendado)
 # stt_provider: elevenlabs
 # stt_model: scribe_v2_realtime
 # Alternativa: OpenAI gpt-4o-mini-transcribe (streaming WebSocket o batch REST)
-# stt_provider: openai
-# stt_model: gpt-4o-mini-transcribe
+stt_provider: openai
+stt_model: gpt-4o-mini-transcribe
 # stt_use_realtime: true   # true = WebSocket streaming (default); false = batch REST
 
 # --- LLM ---
