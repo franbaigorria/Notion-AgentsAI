@@ -28,7 +28,7 @@ def _make_preprocessed_tts(inner, preprocess_fn):
     aplicando preprocess_fn al texto antes de delegarlo al plugin original.
     """
     from livekit.agents import tts as lk_tts
-    from livekit.agents.tts import DEFAULT_API_CONNECT_OPTIONS
+    from livekit.agents import DEFAULT_API_CONNECT_OPTIONS
 
     class _PreprocessedSynthesizeStream:
         """Proxy de SynthesizeStream que preprocesa el texto en push_text()."""
