@@ -28,8 +28,8 @@ stt_model: nova-3
 # stt_use_realtime: true   # true = WebSocket streaming (default); false = batch REST
 
 # --- LLM ---
-llm_provider: openai
-llm_model: gpt-5-nano
+llm_provider: claude
+llm_model: claude-3-5-haiku-20241022
 # Alternativas:
 # llm_provider: openai  ; llm_model: gpt-4.1-nano          # más rápido, menos consistente
 # llm_provider: groq    ; llm_model: llama-3.1-8b-instant  # ultra rápido, rate limit free
