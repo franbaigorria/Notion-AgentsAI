@@ -22,6 +22,10 @@ stt_model: nova-3
 # Alternativa: ElevenLabs Scribe (más lento, 1.7s+ delay, no recomendado)
 # stt_provider: elevenlabs
 # stt_model: scribe_v2_realtime
+# Alternativa: OpenAI gpt-4o-mini-transcribe (streaming WebSocket o batch REST)
+# stt_provider: openai
+# stt_model: gpt-4o-mini-transcribe
+# stt_use_realtime: true   # true = WebSocket streaming (default); false = batch REST
 
 # --- LLM ---
 llm_provider: openai
@@ -31,13 +35,20 @@ llm_model: gpt-5.4-nano
 # llm_provider: groq    ; llm_model: llama-3.1-8b-instant  # ultra rápido, rate limit free
 
 # --- TTS ---
-tts_provider: fish_speech
-voice_id: ""  # Optional reference voice
-tts_model: "s2-pro" # S2 Pro — único modelo con expression tags ([excited], [low voice], etc.)
+tts_provider: elevenlabs
+tts_model: eleven_flash_v2_5
+# Para Fish Speech (expression tags activos): descomentar y comentar elevenlabs
+# tts_provider: fish_speech
+# tts_model: "s2-pro"
 # Alternativas:
 # tts_provider: elevenlabs ; tts_model: eleven_flash_v2_5
 # tts_provider: cartesia ; tts_model: sonic-multilingual   # ultra baja latencia
 # tts_provider: deepgram ; tts_model: aura-2-antonia-es    # solo funciona bien en US-East
+# Alternativa: OpenAI gpt-4o-mini-tts (billing por token; soporta instructions de tono)
+# tts_provider: openai
+# tts_model: gpt-4o-mini-tts
+# voice_id: ash   # voces: alloy, ash, coral, echo, fable, onyx, nova, sage, shimmer
+# tts_instructions: "Respondé con calidez y brevedad. Sos la recepcionista de una clínica."
 
 # Voice settings (ElevenLabs) — tuning fino
 # stability:        0.0 (expresivo) → 1.0 (estable)
@@ -62,7 +73,7 @@ apply_text_normalization: "on"
 # ═══════════════════════════════════════════════════
 
 realtime:
-  model: gpt-4o-mini-realtime-preview
+  model: gpt-realtime-1.5
   # Voces disponibles: alloy, echo, shimmer, ash, ballad, coral, sage, verse
   #   ash    → masculina, recomendada para recepcionista
   #   verse  → masculina, expresiva

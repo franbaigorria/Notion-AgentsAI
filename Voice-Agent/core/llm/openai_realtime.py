@@ -4,7 +4,7 @@ A diferencia del pipeline STT→LLM→TTS, Realtime maneja audio en ambas direcc
 directamente. Se reemplaza TODO el pipeline con un único modelo.
 
 Uso en AgentSession (LiveKit Agents 1.x):
-    realtime = OpenAIRealtime(model="gpt-4o-mini-realtime-preview", voice="ash")
+    realtime = OpenAIRealtime(model="gpt-realtime-1.5", voice="ash")
     session = AgentSession(llm=realtime.as_livekit_plugin())
 
 NO se pasan stt, tts ni vad — Realtime los reemplaza.
@@ -30,7 +30,7 @@ class OpenAIRealtime:
 
     def __init__(
         self,
-        model: str = "gpt-4o-mini-realtime-preview",
+        model: str = "gpt-realtime-1.5",
         voice: str = "ash",
         temperature: float | None = None,
         speed: float | None = None,

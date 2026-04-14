@@ -45,6 +45,7 @@ def load_vertical(name: str) -> dict:
 def build_stt(config: dict):
     from core.stt.deepgram import DeepgramSTT
     from core.stt.elevenlabs_stt import ElevenLabsSTT
+    from core.stt.openai_stt import OpenAISTT
 
     providers = {
         "deepgram": lambda: DeepgramSTT(
@@ -54,6 +55,11 @@ def build_stt(config: dict):
         "elevenlabs": lambda: ElevenLabsSTT(
             model=config.get("stt_model", "scribe_v2_realtime"),
             language=config.get("language", "es"),
+        ),
+        "openai": lambda: OpenAISTT(
+            model=config.get("stt_model", "gpt-4o-mini-transcribe"),
+            language=config.get("language", "es"),
+            use_realtime=config.get("stt_use_realtime", True),
         ),
     }
 
@@ -107,6 +113,7 @@ def build_tts(config: dict):
     from core.tts.elevenlabs import ElevenLabsTTS
     from core.tts.cartesia import CartesiaTTS
     from core.tts.fish_speech import FishSpeechTTS
+    from core.tts.openai_tts import OpenAITTS
 
     voice_settings = config.get("voice_settings", {})
     providers = {
@@ -129,6 +136,12 @@ def build_tts(config: dict):
         "fish_speech": lambda: FishSpeechTTS(
             voice_id=os.environ.get("FISH_AUDIO_VOICE_ID") or config.get("voice_id", ""),
             model=config.get("tts_model", ""),
+        ),
+        "openai": lambda: OpenAITTS(
+            voice=config.get("voice_id", "ash"),
+            model=config.get("tts_model", "gpt-4o-mini-tts"),
+            instructions=config.get("tts_instructions"),
+            speed=voice_settings.get("speed", 1.0),
         ),
     }
 
