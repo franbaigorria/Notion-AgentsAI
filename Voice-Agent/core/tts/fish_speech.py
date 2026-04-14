@@ -17,16 +17,16 @@ class FishSpeechTTS(tts.TTS):
         self.api_key = os.environ.get("FISH_AUDIO_API_KEY", "")
 
     def synthesize(self, text: str, **kwargs) -> tts.ChunkedStream:
-        return _FishChunkedStream(text, self)
+        return _FishChunkedStream(tts=self, input_text=text, conn_options=kwargs.get("conn_options"))
         
     def as_livekit_plugin(self) -> tts.TTS:
         return self
 
 class _FishChunkedStream(tts.ChunkedStream):
-    def __init__(self, text: str, tts_instance: FishSpeechTTS):
-        super().__init__()
-        self.text = text
-        self._tts = tts_instance
+    def __init__(self, getattr=None, *, tts: FishSpeechTTS, input_text: str, conn_options=None):
+        super().__init__(tts=tts, input_text=input_text, conn_options=conn_options)
+        self.text = input_text
+        self._tts = tts
 
     async def _run(self):
         headers = {
