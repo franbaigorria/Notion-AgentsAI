@@ -16,7 +16,7 @@ class FishSpeechTTS(tts.TTS):
         self.api_url = os.environ.get("FISH_AUDIO_URL", "https://api.fish.audio/v1/tts")
         self.api_key = os.environ.get("FISH_AUDIO_API_KEY", "")
 
-    def synthesize(self, text: str) -> tts.ChunkedStream:
+    def synthesize(self, text: str, **kwargs) -> tts.ChunkedStream:
         return _FishChunkedStream(text, self)
         
     def as_livekit_plugin(self) -> tts.TTS:
