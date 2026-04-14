@@ -28,7 +28,7 @@ class _FishChunkedStream(tts.ChunkedStream):
         self.text = input_text
         self._tts = tts
 
-    async def _run(self):
+    async def _run(self, *args, **kwargs):
         headers = {
             "Content-Type": "application/json"
         }
