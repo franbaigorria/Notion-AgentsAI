@@ -48,8 +48,10 @@ class FishSpeechTTS(TTSProvider, tts.TTS):
         self.api_key = os.environ.get("FISH_AUDIO_API_KEY", "")
 
     def preprocess_text(self, text: str) -> str:
-        """Mapea <tone:X> → Fish Audio inline tags. Tags desconocidos se eliminan."""
+        """Mapea <tone:X> → Fish Audio inline tags. Tags desconocidos o de cierre se eliminan."""
         def replace(m: re.Match) -> str:
+            if m.group(0).startswith('</'):  # tag de cierre → siempre strip
+                return ''
             return _TONE_MAP.get(m.group(1), "")
         return _TONE_TAG_RE.sub(replace, text).strip()
 
