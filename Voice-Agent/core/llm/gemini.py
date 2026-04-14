@@ -1,10 +1,7 @@
 """Implementación de LLMProvider usando Google Gemini.
 
-Usa el endpoint OpenAI-compatible de Google AI Studio:
-  https://generativelanguage.googleapis.com/v1beta/openai/
-
-No requiere dependencias adicionales — usa livekit-plugins-openai con base_url custom,
-igual que GroqLLM.
+Usa livekit-plugins-google (plugin nativo) para la integración con LiveKit AgentSession.
+Para llamadas directas sin LiveKit usa el SDK google-genai.
 
 Uso en AgentSession (LiveKit Agents 1.x):
     llm = GeminiLLM(model="gemini-3.1-flash-lite")
@@ -13,16 +10,16 @@ Uso en AgentSession (LiveKit Agents 1.x):
 Uso directo (sin LiveKit, para RAG loop o tests):
     llm = GeminiLLM()
     result = await llm.complete(context)
+
+Variable requerida: GEMINI_API_KEY
 """
 
 import os
 import time
 
-from livekit.plugins import openai as lk_openai
+from livekit.plugins import google as lk_google
 
 from .base import LLMContext, LLMProvider, LLMResult
-
-_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 # Precios Gemini Flash Lite (USD por millón de tokens) — actualizar según pricing de Google AI
 _INPUT_COST_PER_M = 0.075
@@ -50,45 +47,47 @@ class GeminiLLM(LLMProvider):
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY no está configurada")
 
-    def as_livekit_plugin(self) -> lk_openai.LLM:
-        """Retorna el plugin LiveKit configurado para apuntar a Google Gemini."""
-        return lk_openai.LLM(
+    def as_livekit_plugin(self) -> lk_google.LLM:
+        """Retorna el plugin nativo de LiveKit para Google Gemini."""
+        return lk_google.LLM(
             model=self.model,
-            base_url=_GEMINI_BASE_URL,
             api_key=self.api_key,
-            max_completion_tokens=150,  # Importante para voz — respuestas cortas
+            max_output_tokens=150,  # Importante para voz — respuestas cortas
         )
 
     async def complete(self, context: LLMContext) -> LLMResult:
-        """Genera una respuesta usando el endpoint OpenAI-compatible de Google."""
-        import openai
+        """Genera una respuesta usando el SDK google-genai directamente."""
+        from google import genai
+        from google.genai import types
 
-        client = openai.AsyncOpenAI(
-            base_url=_GEMINI_BASE_URL,
-            api_key=self.api_key,
+        client = genai.Client(api_key=self.api_key)
+
+        contents = [
+            types.Content(role=m.role, parts=[types.Part(text=m.content)])
+            for m in context.messages
+        ]
+        config = types.GenerateContentConfig(
+            system_instruction=context.system or None,
+            max_output_tokens=256,
         )
-        messages = []
-        if context.system:
-            messages.append({"role": "system", "content": context.system})
-        messages += [{"role": m.role, "content": m.content} for m in context.messages]
 
         start = time.monotonic()
-        response = await client.chat.completions.create(
+        response = await client.aio.models.generate_content(
             model=self.model,
-            max_tokens=256,
-            messages=messages,
+            contents=contents,
+            config=config,
         )
         latency_ms = (time.monotonic() - start) * 1000
 
-        input_tokens = response.usage.prompt_tokens
-        output_tokens = response.usage.completion_tokens
+        input_tokens = response.usage_metadata.prompt_token_count or 0
+        output_tokens = response.usage_metadata.candidates_token_count or 0
         cost_usd = (
             input_tokens * _INPUT_COST_PER_M / 1_000_000
             + output_tokens * _OUTPUT_COST_PER_M / 1_000_000
         )
 
         return LLMResult(
-            content=response.choices[0].message.content,
+            content=response.text,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             latency_ms=latency_ms,
