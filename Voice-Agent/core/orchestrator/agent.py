@@ -106,6 +106,7 @@ def build_tts(config: dict):
     from core.tts.deepgram import DeepgramTTS
     from core.tts.elevenlabs import ElevenLabsTTS
     from core.tts.cartesia import CartesiaTTS
+    from core.tts.fish_speech import FishSpeechTTS
 
     voice_settings = config.get("voice_settings", {})
     providers = {
@@ -124,6 +125,10 @@ def build_tts(config: dict):
         "cartesia": lambda: CartesiaTTS(
             voice_id=os.environ.get("CARTESIA_VOICE_ID") or config.get("voice_id", ""),
             model=config.get("tts_model", "sonic-multilingual"),
+        ),
+        "fish_speech": lambda: FishSpeechTTS(
+            voice_id=os.environ.get("FISH_AUDIO_VOICE_ID") or config.get("voice_id", ""),
+            model=config.get("tts_model", ""),
         ),
     }
 

@@ -31,11 +31,11 @@ llm_model: gpt-5.4-nano
 # llm_provider: groq    ; llm_model: llama-3.1-8b-instant  # ultra rápido, rate limit free
 
 # --- TTS ---
-tts_provider: elevenlabs
-voice_id: "7FWgFcfrZ8cVdbfxtLKk"
-tts_model: eleven_flash_v2_5
+tts_provider: fish_speech
+voice_id: ""  # Optional reference voice
+tts_model: "s1" # Default Fish model
 # Alternativas:
-# tts_model: eleven_multilingual_v2   # mejor calidad, más latencia
+# tts_provider: elevenlabs ; tts_model: eleven_flash_v2_5
 # tts_provider: cartesia ; tts_model: sonic-multilingual   # ultra baja latencia
 # tts_provider: deepgram ; tts_model: aura-2-antonia-es    # solo funciona bien en US-East
 

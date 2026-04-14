@@ -19,6 +19,7 @@ dependencies = [
     # Configuración
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
+    "httpx>=0.27.0",
 ]
 
 [project.optional-dependencies]
