@@ -34,7 +34,8 @@ llm_model: claude-haiku-4-5-20251001
 # llm_provider: openai  ; llm_model: gpt-4.1-nano            # más rápido, menos consistente
 # llm_provider: groq    ; llm_model: llama-3.1-8b-instant    # ultra rápido, rate limit free
 llm_provider: gemini
-llm_model: gemini-3.1-flash-lite-preview   # Google AI Studio, requiere GEMINI_API_KEY
+# llm_model: gemini-3.1-flash-lite-preview   # Google AI Studio, requiere GEMINI_API_KEY
+llm_model: gemini-2.5-flash-lite
 
 # --- TTS ---
 tts_provider: elevenlabs
@@ -46,7 +47,7 @@ tts_model: eleven_flash_v2_5
 # tts_provider: elevenlabs ; tts_model: eleven_flash_v2_5
 # tts_provider: cartesia ; tts_model: sonic-multilingual   # ultra baja latencia
 # tts_provider: deepgram ; tts_model: aura-2-antonia-es    # solo funciona bien en US-East
-# Alternativa: OpenAI gpt-4o-mini-tts (billing por token; soporta instructions de tono)
+# Alternativa: OpenAI gpt-4o-mini-tts (billing por tgit oken; soporta instructions de tono)
 # tts_provider: openai
 # tts_model: gpt-4o-mini-tts
 # voice_id: ash   # voces: alloy, ash, coral, echo, fable, onyx, nova, sage, shimmer
