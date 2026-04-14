@@ -33,7 +33,7 @@ llm_model: gpt-5.4-nano
 # --- TTS ---
 tts_provider: fish_speech
 voice_id: ""  # Optional reference voice
-tts_model: "s1" # Default Fish model
+tts_model: "s2-pro" # S2 Pro — único modelo con expression tags ([excited], [low voice], etc.)
 # Alternativas:
 # tts_provider: elevenlabs ; tts_model: eleven_flash_v2_5
 # tts_provider: cartesia ; tts_model: sonic-multilingual   # ultra baja latencia

@@ -19,22 +19,24 @@ from .base import TTSProvider
 
 logger = logging.getLogger(__name__)
 
-# Mapeo vocabulario neutral → Fish Audio inline tags
+# Mapeo vocabulario neutral → Fish Audio S2 Pro inline tags
+# Tags verificados contra la lista oficial de S2 Pro.
+# S2 Pro también acepta free-form ("speaking with warmth") pero usamos los canónicos.
 _TONE_MAP: dict[str, str] = {
     "excited":      "[excited]",
-    "empathetic":   "[soft]",
-    "soft":         "[low voice]",
-    "pause":        "[pause]",
-    "cheerful":     "[laugh]",
-    "professional": "",   # tono default — sin tag
-    "serious":      "",   # ídem
+    "empathetic":   "[low voice]",   # cálido y cercano
+    "soft":         "[low volume]",  # suave/tranquilizador
+    "pause":        "[short pause]", # más natural en conversación que [pause]
+    "cheerful":     "[laughing]",    # tag oficial (no [laugh])
+    "professional": "",              # tono default — sin tag
+    "serious":      "",              # ídem
 }
 
 _TONE_TAG_RE = re.compile(r'<tone:(\w+)>\s*')
 
 
 class FishSpeechTTS(TTSProvider, tts.TTS):
-    def __init__(self, voice_id: str = "", model: str = "s1"):
+    def __init__(self, voice_id: str = "", model: str = "s2-pro"):
         super().__init__(
             capabilities=tts.TTSCapabilities(streaming=False),
             sample_rate=44100,
