@@ -90,6 +90,7 @@ def build_realtime_llm(config: dict):
 
 def build_llm(config: dict):
     from core.llm.claude import ClaudeLLM
+    from core.llm.gemini import GeminiLLM
     from core.llm.groq import GroqLLM
     from core.llm.ollama import OllamaLLM
     from core.llm.openai import OpenAILLM
@@ -99,6 +100,7 @@ def build_llm(config: dict):
         "openai": lambda: OpenAILLM(model=config.get("llm_model", "gpt-4o-mini")),
         "ollama": lambda: OllamaLLM(model=config.get("llm_model", "gemma4:e4b")),
         "groq": lambda: GroqLLM(model=config.get("llm_model", "llama-3.1-8b-instant")),
+        "gemini": lambda: GeminiLLM(model=config.get("llm_model", "gemini-3.1-flash-lite")),
     }
 
     name = config.get("llm_provider", "claude")
