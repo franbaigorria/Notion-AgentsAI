@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 
 from livekit.plugins import cartesia as lk_cartesia
 
-from .base import TTSProvider, TTSResult
+from .base import TTSProvider, TTSResult, _make_preprocessed_tts, strip_tone_tags
 
 # Pricing aproximado de Cartesia (por caracter)
 _COST_PER_CHAR_USD = 0.00001
@@ -21,17 +21,22 @@ class CartesiaTTS(TTSProvider):
         self.voice_id = voice_id
         self.model = model
 
-    def as_livekit_plugin(self) -> lk_cartesia.TTS:
-        """Retorna el plugin LiveKit configurado para Cartesia."""
+    def as_livekit_plugin(self):
+        """Retorna el plugin LiveKit configurado para Cartesia.
+
+        Envuelto con _make_preprocessed_tts para eliminar <tone:X> antes
+        de que lleguen a la API de Cartesia.
+        """
         api_key = os.environ.get("CARTESIA_API_KEY")
         if not api_key:
             raise ValueError("CARTESIA_API_KEY no está configurada")
 
-        return lk_cartesia.TTS(
+        plugin = lk_cartesia.TTS(
             voice=self.voice_id,
             model=self.model,
             api_key=api_key,
         )
+        return _make_preprocessed_tts(plugin, strip_tone_tags)
 
     async def synthesize(self, text: str, voice_id: str = "") -> AsyncIterator[bytes]:
         """Cartesia REST stream. Implementado como stub para uso directo."""

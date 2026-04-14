@@ -9,15 +9,31 @@ Uso:
 """
 
 import os
+import re
 import logging
 
 import httpx
 from livekit.agents import tts, utils
 
+from .base import TTSProvider
+
 logger = logging.getLogger(__name__)
 
+# Mapeo vocabulario neutral → Fish Audio inline tags
+_TONE_MAP: dict[str, str] = {
+    "excited":      "[excited]",
+    "empathetic":   "[soft]",
+    "soft":         "[low voice]",
+    "pause":        "[pause]",
+    "cheerful":     "[laugh]",
+    "professional": "",   # tono default — sin tag
+    "serious":      "",   # ídem
+}
 
-class FishSpeechTTS(tts.TTS):
+_TONE_TAG_RE = re.compile(r'<tone:(\w+)>\s*')
+
+
+class FishSpeechTTS(TTSProvider, tts.TTS):
     def __init__(self, voice_id: str = "", model: str = "s1"):
         super().__init__(
             capabilities=tts.TTSCapabilities(streaming=False),
@@ -29,17 +45,25 @@ class FishSpeechTTS(tts.TTS):
         self.api_url = os.environ.get("FISH_AUDIO_URL", "https://api.fish.audio/v1/tts")
         self.api_key = os.environ.get("FISH_AUDIO_API_KEY", "")
 
-    def synthesize(
+    def preprocess_text(self, text: str) -> str:
+        """Mapea <tone:X> → Fish Audio inline tags. Tags desconocidos se eliminan."""
+        def replace(m: re.Match) -> str:
+            return _TONE_MAP.get(m.group(1), "")
+        return _TONE_TAG_RE.sub(replace, text).strip()
+
+    def synthesize(  # type: ignore[override]
         self, text: str, *, conn_options=None, **kwargs
     ) -> "tts.ChunkedStream":
+        # Satisface TTSProvider (ABC) y livekit.tts.TTS al mismo tiempo.
+        # La firma difiere de TTSProvider.synthesize — por eso type: ignore[override].
         return _FishChunkedStream(
             tts=self,
-            input_text=text,
+            input_text=self.preprocess_text(text),
             conn_options=conn_options or tts.DEFAULT_API_CONNECT_OPTIONS,
         )
 
     def as_livekit_plugin(self) -> "tts.TTS":
-        """Adapter bridge — devuelve self porque ya hereda de tts.TTS."""
+        """Devuelve self — FishSpeechTTS ya hereda de livekit.tts.TTS."""
         return self
 
 

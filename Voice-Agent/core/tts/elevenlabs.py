@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator
 
 from livekit.plugins import elevenlabs as lk_elevenlabs
 
-from .base import TTSProvider, TTSResult
+from .base import TTSProvider, TTSResult, _make_preprocessed_tts, strip_tone_tags
 
 # Precio ElevenLabs por carácter (plan Creator)
 _COST_PER_CHAR_USD = 0.000030
@@ -53,8 +53,12 @@ class ElevenLabsTTS(TTSProvider):
             speed=self.speed,
         )
 
-    def as_livekit_plugin(self) -> lk_elevenlabs.TTS:
-        """Retorna el plugin LiveKit para usar en AgentSession."""
+    def as_livekit_plugin(self):
+        """Retorna el plugin LiveKit para usar en AgentSession.
+
+        Envuelto con _make_preprocessed_tts para eliminar <tone:X> antes
+        de que lleguen a la API de ElevenLabs.
+        """
         voice_settings = self._build_voice_settings()
         kwargs: dict = {
             "api_key": os.environ["ELEVENLABS_API_KEY"],
@@ -64,7 +68,7 @@ class ElevenLabsTTS(TTSProvider):
         }
         if voice_settings is not None:
             kwargs["voice_settings"] = voice_settings
-        return lk_elevenlabs.TTS(**kwargs)
+        return _make_preprocessed_tts(lk_elevenlabs.TTS(**kwargs), strip_tone_tags)
 
     async def synthesize(self, text: str, voice_id: str) -> AsyncIterator[bytes]:
         """Síntesis directa via API de ElevenLabs como stream de bytes."""
