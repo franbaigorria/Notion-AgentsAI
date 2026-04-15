@@ -115,6 +115,7 @@ def build_tts(config: dict):
     from core.tts.elevenlabs import ElevenLabsTTS
     from core.tts.cartesia import CartesiaTTS
     from core.tts.fish_speech import FishSpeechTTS
+    from core.tts.gemini_tts import GeminiTTS
     from core.tts.openai_tts import OpenAITTS
 
     voice_settings = config.get("voice_settings", {})
@@ -144,6 +145,11 @@ def build_tts(config: dict):
             model=config.get("tts_model", "gpt-4o-mini-tts"),
             instructions=config.get("tts_instructions"),
             speed=voice_settings.get("speed", 1.0),
+        ),
+        "gemini": lambda: GeminiTTS(
+            voice=config.get("voice_id", "Charon"),
+            model=config.get("tts_model", "gemini-3.1-flash-tts-preview"),
+            instructions=config.get("tts_instructions"),
         ),
     }
 

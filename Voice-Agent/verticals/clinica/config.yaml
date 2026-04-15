@@ -38,8 +38,8 @@ llm_provider: gemini
 llm_model: gemini-2.5-flash-lite
 
 # --- TTS ---
-tts_provider: elevenlabs
-tts_model: eleven_flash_v2_5
+# tts_provider: elevenlabs
+# tts_model: eleven_flash_v2_5
 # Para Fish Speech (expression tags activos): descomentar y comentar elevenlabs
 # tts_provider: fish_speech
 # tts_model: "s2-pro"
@@ -47,11 +47,16 @@ tts_model: eleven_flash_v2_5
 # tts_provider: elevenlabs ; tts_model: eleven_flash_v2_5
 # tts_provider: cartesia ; tts_model: sonic-multilingual   # ultra baja latencia
 # tts_provider: deepgram ; tts_model: aura-2-antonia-es    # solo funciona bien en US-East
-# Alternativa: OpenAI gpt-4o-mini-tts (billing por tgit oken; soporta instructions de tono)
+# Alternativa: OpenAI gpt-4o-mini-tts (billing por token; soporta instructions de tono)
 # tts_provider: openai
 # tts_model: gpt-4o-mini-tts
 # voice_id: ash   # voces: alloy, ash, coral, echo, fable, onyx, nova, sage, shimmer
 # tts_instructions: "Respondé con calidez y brevedad. Sos la recepcionista de una clínica."
+# Alternativa: Gemini TTS (generative model; requiere GEMINI_API_KEY)
+tts_provider: gemini
+tts_model: gemini-3.1-flash-tts-preview
+voice_id: Charon   # voces: Charon, Puck, Kore, Fenrir, Aoede, Zephyr
+tts_instructions: "Respondé con calidez y brevedad. Sos la recepcionista de una clínica."
 
 # Voice settings (ElevenLabs) — tuning fino
 # stability:        0.0 (expresivo) → 1.0 (estable)
