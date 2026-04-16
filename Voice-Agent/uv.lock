@@ -1924,6 +1924,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "elevenlabs" },
+    { name = "google-genai" },
     { name = "httpx" },
     { name = "livekit-agents" },
     { name = "livekit-plugins-anthropic" },
@@ -1949,6 +1950,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.40" },
     { name = "elevenlabs", specifier = ">=1.0" },
+    { name = "google-genai", specifier = ">=1.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "livekit-agents", specifier = ">=1.0,<2.0" },
     { name = "livekit-plugins-anthropic", specifier = ">=1.0,<2.0" },

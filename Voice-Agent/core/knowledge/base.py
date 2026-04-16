@@ -14,10 +14,12 @@ class KnowledgeResult:
 class KnowledgeProvider(ABC):
     """Interfaz base para Recuperación de Conocimiento Documental (Knowledge Access).
 
-    Reemplaza al antiguo RAGProvider.
-    Se usa para recuperar información estática o semi-estructurada (FAQs, políticas, coberturas).
-    La búsqueda siempre se filtra por vertical para no mezclar KBs entre negocios (RQ-02/RQ-03).
+    Recupera información estática o semi-estructurada (FAQs, políticas, coberturas).
+    La búsqueda se filtra por tenant_id para garantizar aislamiento total entre clientes.
+
+    Convención de naming en Qdrant: colección = kb_{tenant_id}
+    Ejemplo: tenant "clinica_del_valle" → colección "kb_clinica_del_valle"
     """
 
     @abstractmethod
-    async def retrieve(self, query: str, vertical: str) -> KnowledgeResult: ...
+    async def retrieve(self, query: str, tenant_id: str) -> KnowledgeResult: ...
