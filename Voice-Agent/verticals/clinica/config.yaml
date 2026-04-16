@@ -22,22 +22,41 @@ stt_model: nova-3
 # Alternativa: ElevenLabs Scribe (más lento, 1.7s+ delay, no recomendado)
 # stt_provider: elevenlabs
 # stt_model: scribe_v2_realtime
+# Alternativa: OpenAI gpt-4o-mini-transcribe (streaming WebSocket o batch REST)
+# stt_provider: openai
+# stt_model: gpt-4o-mini-transcribe
+# stt_use_realtime: true   # true = WebSocket streaming (default); false = batch REST
 
 # --- LLM ---
-llm_provider: openai
-llm_model: gpt-5.4-nano
+llm_provider: claude
+llm_model: claude-haiku-4-5-20251001
 # Alternativas:
-# llm_provider: openai  ; llm_model: gpt-4.1-nano          # más rápido, menos consistente
-# llm_provider: groq    ; llm_model: llama-3.1-8b-instant  # ultra rápido, rate limit free
+# llm_provider: openai  ; llm_model: gpt-4.1-nano            # más rápido, menos consistente
+# llm_provider: groq    ; llm_model: llama-3.1-8b-instant    # ultra rápido, rate limit free
+# llm_provider: gemini
+# llm_model: gemini-3.1-flash-lite-preview   # Google AI Studio, requiere GEMINI_API_KEY
+# llm_model: gemini-2.5-flash-lite
 
 # --- TTS ---
-tts_provider: elevenlabs
-voice_id: "7FWgFcfrZ8cVdbfxtLKk"
-tts_model: eleven_flash_v2_5
+# tts_provider: elevenlabs
+# tts_model: eleven_flash_v2_5
+# Para Fish Speech (expression tags activos): descomentar y comentar elevenlabs
+# tts_provider: fish_speech
+# tts_model: "s2-pro"
 # Alternativas:
-# tts_model: eleven_multilingual_v2   # mejor calidad, más latencia
+# tts_provider: elevenlabs ; tts_model: eleven_flash_v2_5
 # tts_provider: cartesia ; tts_model: sonic-multilingual   # ultra baja latencia
 # tts_provider: deepgram ; tts_model: aura-2-antonia-es    # solo funciona bien en US-East
+# Alternativa: OpenAI gpt-4o-mini-tts (billing por token; soporta instructions de tono)
+# tts_provider: openai
+# tts_model: gpt-4o-mini-tts
+# voice_id: ash   # voces: alloy, ash, coral, echo, fable, onyx, nova, sage, shimmer
+# tts_instructions: "Respondé con calidez y brevedad. Sos la recepcionista de una clínica."
+# Alternativa: Gemini TTS (generative model; requiere GEMINI_API_KEY)
+tts_provider: gemini
+tts_model: gemini-3.1-flash-tts-preview
+voice_id: Charon   # voces: Charon, Puck, Kore, Fenrir, Aoede, Zephyr
+tts_instructions: "Respondé con calidez y brevedad. Sos la recepcionista de una clínica."
 
 # Voice settings (ElevenLabs) — tuning fino
 # stability:        0.0 (expresivo) → 1.0 (estable)
@@ -62,7 +81,7 @@ apply_text_normalization: "on"
 # ═══════════════════════════════════════════════════
 
 realtime:
-  model: gpt-4o-mini-realtime-preview
+  model: gpt-realtime-1.5
   # Voces disponibles: alloy, echo, shimmer, ash, ballad, coral, sage, verse
   #   ash    → masculina, recomendada para recepcionista
   #   verse  → masculina, expresiva
@@ -70,7 +89,7 @@ realtime:
   #   ballad → masculina, lírica
   voice: ash
   temperature: 0.7
-  speed: 1.0
+  speed: 1.5
 
 # ═══════════════════════════════════════════════════
 # Saludo inicial (ambos modos)

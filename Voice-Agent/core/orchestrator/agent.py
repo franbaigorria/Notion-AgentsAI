@@ -45,6 +45,7 @@ def load_vertical(name: str) -> dict:
 def build_stt(config: dict):
     from core.stt.deepgram import DeepgramSTT
     from core.stt.elevenlabs_stt import ElevenLabsSTT
+    from core.stt.openai_stt import OpenAISTT
 
     providers = {
         "deepgram": lambda: DeepgramSTT(
@@ -54,6 +55,11 @@ def build_stt(config: dict):
         "elevenlabs": lambda: ElevenLabsSTT(
             model=config.get("stt_model", "scribe_v2_realtime"),
             language=config.get("language", "es"),
+        ),
+        "openai": lambda: OpenAISTT(
+            model=config.get("stt_model", "gpt-4o-mini-transcribe"),
+            language=config.get("language", "es"),
+            use_realtime=config.get("stt_use_realtime", True),
         ),
     }
 
@@ -84,6 +90,7 @@ def build_realtime_llm(config: dict):
 
 def build_llm(config: dict):
     from core.llm.claude import ClaudeLLM
+    from core.llm.gemini import GeminiLLM
     from core.llm.groq import GroqLLM
     from core.llm.ollama import OllamaLLM
     from core.llm.openai import OpenAILLM
@@ -93,6 +100,7 @@ def build_llm(config: dict):
         "openai": lambda: OpenAILLM(model=config.get("llm_model", "gpt-4o-mini")),
         "ollama": lambda: OllamaLLM(model=config.get("llm_model", "gemma4:e4b")),
         "groq": lambda: GroqLLM(model=config.get("llm_model", "llama-3.1-8b-instant")),
+        "gemini": lambda: GeminiLLM(model=config.get("llm_model", "gemini-3.1-flash-lite")),
     }
 
     name = config.get("llm_provider", "claude")
@@ -106,6 +114,9 @@ def build_tts(config: dict):
     from core.tts.deepgram import DeepgramTTS
     from core.tts.elevenlabs import ElevenLabsTTS
     from core.tts.cartesia import CartesiaTTS
+    from core.tts.fish_speech import FishSpeechTTS
+    from core.tts.gemini_tts import GeminiTTS
+    from core.tts.openai_tts import OpenAITTS
 
     voice_settings = config.get("voice_settings", {})
     providers = {
@@ -124,6 +135,21 @@ def build_tts(config: dict):
         "cartesia": lambda: CartesiaTTS(
             voice_id=os.environ.get("CARTESIA_VOICE_ID") or config.get("voice_id", ""),
             model=config.get("tts_model", "sonic-multilingual"),
+        ),
+        "fish_speech": lambda: FishSpeechTTS(
+            voice_id=os.environ.get("FISH_AUDIO_VOICE_ID") or config.get("voice_id", ""),
+            model=config.get("tts_model", ""),
+        ),
+        "openai": lambda: OpenAITTS(
+            voice=config.get("voice_id", "ash"),
+            model=config.get("tts_model", "gpt-4o-mini-tts"),
+            instructions=config.get("tts_instructions"),
+            speed=voice_settings.get("speed", 1.0),
+        ),
+        "gemini": lambda: GeminiTTS(
+            voice=config.get("voice_id", "Charon"),
+            model=config.get("tts_model", "gemini-3.1-flash-tts-preview"),
+            instructions=config.get("tts_instructions"),
         ),
     }
 

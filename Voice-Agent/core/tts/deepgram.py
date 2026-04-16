@@ -25,7 +25,7 @@ from collections.abc import AsyncIterator
 
 from livekit.plugins import deepgram as lk_deepgram
 
-from .base import TTSProvider, TTSResult
+from .base import TTSProvider, TTSResult, _make_preprocessed_tts, strip_tone_tags
 
 _DEEPGRAM_SPEAK_URL = "https://api.deepgram.com/v1/speak"
 
@@ -51,14 +51,19 @@ class DeepgramTTS(TTSProvider):
         self.encoding = encoding
         self.sample_rate = sample_rate
 
-    def as_livekit_plugin(self) -> lk_deepgram.TTS:
-        """Retorna el plugin LiveKit para usar en AgentSession."""
-        return lk_deepgram.TTS(
+    def as_livekit_plugin(self):
+        """Retorna el plugin LiveKit para usar en AgentSession.
+
+        Envuelto con _make_preprocessed_tts para eliminar <tone:X> antes
+        de que lleguen a la API de Deepgram.
+        """
+        plugin = lk_deepgram.TTS(
             model=self.model,
             encoding=self.encoding,
             sample_rate=self.sample_rate,
             api_key=os.environ["DEEPGRAM_API_KEY"],
         )
+        return _make_preprocessed_tts(plugin, strip_tone_tags)
 
     async def synthesize(self, text: str, voice_id: str = "") -> AsyncIterator[bytes]:
         """Síntesis directa via REST API de Deepgram como stream de bytes.
