@@ -34,21 +34,27 @@ if config.config_file_name is not None:
 # DATABASE_URL is absent outside test mode.
 os.environ.setdefault("ENV", "production")
 
+from core.db.engine import _normalize_database_url  # noqa: E402
 from core.db.models import Base  # noqa: E402 — must come after env setup
 
 target_metadata = Base.metadata
 
 # ---------------------------------------------------------------------------
 # URL resolution — prefer DATABASE_URL env var; fall back to alembic.ini
+# Normalization: Railway and other managed Postgres providers inject the
+# driver-less `postgresql://` scheme. _normalize_database_url() rewrites it to
+# `postgresql+asyncpg://` so migrations run on the async driver — same path as
+# the runtime engine.
 # ---------------------------------------------------------------------------
 
 
 def _get_url() -> str:
     url = os.getenv("DATABASE_URL")
     if url:
-        return url
+        return _normalize_database_url(url)
     # Fallback: value set in alembic.ini [alembic] sqlalchemy.url
-    return config.get_main_option("sqlalchemy.url", "")
+    fallback = config.get_main_option("sqlalchemy.url", "")
+    return _normalize_database_url(fallback) if fallback else ""
 
 
 # ---------------------------------------------------------------------------
