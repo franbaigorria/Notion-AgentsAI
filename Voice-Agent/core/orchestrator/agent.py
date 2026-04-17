@@ -13,13 +13,27 @@ Variables de entorno requeridas:
     LIVEKIT_URL         URL del servidor LiveKit
     LIVEKIT_API_KEY     API key de LiveKit
     LIVEKIT_API_SECRET  API secret de LiveKit
+
+Variables de entorno opcionales:
+    USE_TENANT_REGISTRY  Si es exactamente "true", activa el path multi-tenant.
+                         Cualquier otro valor (incluido ausente) mantiene el
+                         comportamiento YAML-based original (default: OFF).
+                         Cuando está ON, se requieren DATABASE_URL y VAULT_MASTER_KEY.
 """
+
+from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    from core.tenants.base import TenantId, TenantRegistry
+    from core.vault.base import CredentialVault
+    from core.orchestrator.tenant_context import TenantContext
 
 
 load_dotenv()
@@ -158,4 +172,86 @@ def build_tts(config: dict):
         raise ValueError(f"TTS provider desconocido: '{name}'. Disponibles: {list(providers)}")
 
     return providers[name]().as_livekit_plugin()
+
+
+# ---------------------------------------------------------------------------
+# Multi-tenant path — feature flag USE_TENANT_REGISTRY
+# ---------------------------------------------------------------------------
+
+
+def _tenant_registry_enabled() -> bool:
+    """Retorna True solo si USE_TENANT_REGISTRY es exactamente 'true' (case-sensitive)."""
+    return os.environ.get("USE_TENANT_REGISTRY", "").strip() == "true"
+
+
+async def build_tenant_context_from_env(
+    tenant_id: "TenantId",
+    *,
+    registry: "TenantRegistry | None" = None,
+    vault: "CredentialVault | None" = None,
+) -> "TenantContext | None":
+    """Construye un TenantContext si USE_TENANT_REGISTRY=true, o retorna None.
+
+    Punto de entrada para el path multi-tenant en los agentes (apps/pipeline/agent.py,
+    apps/realtime/agent.py). Encapsula la lógica del feature flag para que los
+    agentes no necesiten conocer la variable de entorno directamente.
+
+    Comportamiento por flag:
+        - USE_TENANT_REGISTRY != "true" (default, OFF):
+            Retorna None. El agente debe continuar con load_vertical() + YAML config.
+            SIN llamadas a Postgres, sin imports de SQLAlchemy — idéntico al estado
+            anterior a este cambio.
+
+        - USE_TENANT_REGISTRY = "true" (ON):
+            Llama a registry.get(tenant_id). Si el tenant existe y está activo,
+            retorna un TenantContext con acceso lazy al vault.
+            NO silencia TenantNotFound ni TenantDisabled — ambas se propagan
+            para que el llamador las maneje (rechazar la sesión).
+
+    Fuente de tenant_id (Task 4.1 — investigación completada):
+        Se extrae de ctx.job.metadata (JSON, clave "tenant_id") ANTES de ctx.connect().
+        Ver core/orchestrator/tenant_context.py para la decisión completa y TODOs.
+
+    Session management:
+        The vault manages its own sessions internally via its session_factory.
+        The registry still requires a session at construction time — the caller
+        is responsible for providing a session-bound registry (or using the default
+        production path which constructs one internally via get_session).
+
+    Args:
+        tenant_id: UUID del tenant. Se obtiene de ctx.job.metadata en el agente.
+        registry: Implementación de TenantRegistry (p.ej. PostgresTenantRegistry).
+                  If None, a PostgresTenantRegistry is constructed with a fresh session.
+        vault: Implementación de CredentialVault (p.ej. FernetPostgresVault).
+               If None, a FernetPostgresVault() is constructed (uses env vars).
+
+    Returns:
+        TenantContext si el flag está activo y el tenant existe.
+        None si el flag está inactivo — el agente debe usar el path YAML.
+
+    Raises:
+        TenantNotFound: si flag ON y tenant_id no existe. NO se silencia.
+        TenantDisabled: si flag ON y el tenant está disabled. NO se silencia.
+    """
+    if not _tenant_registry_enabled():
+        return None
+
+    from core.orchestrator.tenant_context import build_tenant_context
+
+    if vault is None:
+        from core.vault.fernet_postgres import FernetPostgresVault
+
+        vault = FernetPostgresVault()
+
+    if registry is not None:
+        return await build_tenant_context(tenant_id, registry=registry, vault=vault)
+
+    # Default production path: open a session for registry lookup only.
+    # The vault manages its own sessions independently.
+    from core.db.engine import get_session
+    from core.tenants.postgres import PostgresTenantRegistry
+
+    async with get_session() as session:
+        pg_registry = PostgresTenantRegistry(session=session)
+        return await build_tenant_context(tenant_id, registry=pg_registry, vault=vault)
 
