@@ -187,8 +187,8 @@ def _tenant_registry_enabled() -> bool:
 async def build_tenant_context_from_env(
     tenant_id: "TenantId",
     *,
-    registry: "TenantRegistry",
-    vault: "CredentialVault",
+    registry: "TenantRegistry | None" = None,
+    vault: "CredentialVault | None" = None,
 ) -> "TenantContext | None":
     """Construye un TenantContext si USE_TENANT_REGISTRY=true, o retorna None.
 
@@ -212,10 +212,18 @@ async def build_tenant_context_from_env(
         Se extrae de ctx.job.metadata (JSON, clave "tenant_id") ANTES de ctx.connect().
         Ver core/orchestrator/tenant_context.py para la decisión completa y TODOs.
 
+    Session management:
+        The vault manages its own sessions internally via its session_factory.
+        The registry still requires a session at construction time — the caller
+        is responsible for providing a session-bound registry (or using the default
+        production path which constructs one internally via get_session).
+
     Args:
         tenant_id: UUID del tenant. Se obtiene de ctx.job.metadata en el agente.
         registry: Implementación de TenantRegistry (p.ej. PostgresTenantRegistry).
+                  If None, a PostgresTenantRegistry is constructed with a fresh session.
         vault: Implementación de CredentialVault (p.ej. FernetPostgresVault).
+               If None, a FernetPostgresVault() is constructed (uses env vars).
 
     Returns:
         TenantContext si el flag está activo y el tenant existe.
@@ -230,5 +238,20 @@ async def build_tenant_context_from_env(
 
     from core.orchestrator.tenant_context import build_tenant_context
 
-    return await build_tenant_context(tenant_id, registry=registry, vault=vault)
+    if vault is None:
+        from core.vault.fernet_postgres import FernetPostgresVault
+
+        vault = FernetPostgresVault()
+
+    if registry is not None:
+        return await build_tenant_context(tenant_id, registry=registry, vault=vault)
+
+    # Default production path: open a session for registry lookup only.
+    # The vault manages its own sessions independently.
+    from core.db.engine import get_session
+    from core.tenants.postgres import PostgresTenantRegistry
+
+    async with get_session() as session:
+        pg_registry = PostgresTenantRegistry(session=session)
+        return await build_tenant_context(tenant_id, registry=pg_registry, vault=vault)
 

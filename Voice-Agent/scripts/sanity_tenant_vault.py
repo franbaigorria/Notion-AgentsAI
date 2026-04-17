@@ -2,9 +2,9 @@
 
 Tests the full path:
   1. Creates a tenant via PostgresTenantRegistry
-  2. Stores a secret via FernetPostgresVault
+  2. Stores a secret via FernetPostgresVault (vault manages its own session)
   3. Loads a TenantContext via build_tenant_context (with USE_TENANT_REGISTRY=true)
-  4. Calls vault.get() to retrieve the secret
+  4. Calls ctx.get_secret() to retrieve the secret (the key method — uses vault internally)
   5. Asserts the retrieved value equals the original
   6. Cleans up (disables tenant, deletes secret)
 
@@ -81,11 +81,10 @@ async def run_sanity() -> None:
     print(f"  Created tenant id={tenant_id} name={tenant.name}")
 
     # -------------------------------------------------------------------
-    # Step 2: Store a secret via FernetPostgresVault
+    # Step 2: Store a secret via FernetPostgresVault (vault manages its own session)
     # -------------------------------------------------------------------
     print(f"\nStep 2: Storing secret '{SECRET_KEY}' via FernetPostgresVault...")
-    async with get_session() as session:
-        await vault.store(tenant_id, SECRET_KEY, SECRET_VALUE, session=session)
+    await vault.store(tenant_id, SECRET_KEY, SECRET_VALUE)
     print("  Stored secret (value hidden)")
 
     # -------------------------------------------------------------------
@@ -99,11 +98,10 @@ async def run_sanity() -> None:
     print(f"  TenantContext loaded: tenant.name={ctx.tenant.name}, tenant.id={ctx.tenant.id}")
 
     # -------------------------------------------------------------------
-    # Step 4: Retrieve secret via vault.get()
+    # Step 4: Retrieve secret via ctx.get_secret() — the full lazy-fetch path
     # -------------------------------------------------------------------
-    print(f"\nStep 4: Retrieving secret '{SECRET_KEY}' via vault.get()...")
-    async with get_session() as session:
-        retrieved = await vault.get(tenant_id, SECRET_KEY, session=session)
+    print(f"\nStep 4: Retrieving secret '{SECRET_KEY}' via ctx.get_secret()...")
+    retrieved = await ctx.get_secret(SECRET_KEY)
     print("  Retrieved secret successfully (value hidden)")
 
     # -------------------------------------------------------------------
@@ -124,7 +122,7 @@ async def run_sanity() -> None:
     async with get_session() as session:
         registry = PostgresTenantRegistry(session)
         await registry.disable(tenant_id)
-        await vault.delete(tenant_id, SECRET_KEY, session=session)
+    await vault.delete(tenant_id, SECRET_KEY)
     print(f"  Tenant {tenant_id} disabled. Secret '{SECRET_KEY}' deleted.")
 
     print("\nOK End-to-end sanity passed")

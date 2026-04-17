@@ -1,6 +1,6 @@
 """Unit tests — FernetPostgresVault adapter (Task 3.3 RED → 3.4 GREEN).
 
-Uses a mocked async session to avoid Postgres dependency.
+Uses a mocked async session_factory to avoid Postgres dependency.
 Tests cover:
   - Fernet encrypt→decrypt round-trip
   - Corrupted ciphertext → VaultDecryptError
@@ -10,11 +10,16 @@ Tests cover:
   - missing VAULT_MASTER_KEY → MasterKeyMissingError
   - audit log is written on every operation (3.8)
   - vault_audit_log has no UPDATE/DELETE methods on public API (3.8 tamper prevention)
+
+Session injection via session_factory:
+  The vault no longer accepts session= kwarg on public methods.
+  Tests inject a mock session_factory so the vault uses the mock session internally.
 """
 
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -33,10 +38,39 @@ from core.vault.fernet_postgres import FernetPostgresVault
 MASTER_KEY = Fernet.generate_key().decode()
 
 
-def _vault(caller_context: str | None = None) -> FernetPostgresVault:
-    """Instantiate vault with a valid master key."""
+def _make_mock_session(rows: list | None = None) -> AsyncMock:
+    """Build an AsyncMock that mimics an async SQLAlchemy session."""
+    session = AsyncMock()
+    session.begin = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(), __aexit__=AsyncMock()))
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = rows or []
+    result.scalar_one_or_none.return_value = None
+    session.execute = AsyncMock(return_value=result)
+    session.add = MagicMock()
+    session.flush = AsyncMock()
+    return session
+
+
+def _make_session_factory(mock_session: AsyncMock):
+    """Wrap a mock session in an async context manager factory."""
+
+    @asynccontextmanager
+    async def factory():
+        yield mock_session
+
+    return factory
+
+
+def _vault(
+    caller_context: str | None = None,
+    session_factory=None,
+) -> FernetPostgresVault:
+    """Instantiate vault with a valid master key and optional mock session_factory."""
     with patch.dict(os.environ, {"VAULT_MASTER_KEY": MASTER_KEY, "ENV": "test"}):
-        return FernetPostgresVault(caller_context=caller_context)
+        return FernetPostgresVault(
+            caller_context=caller_context,
+            session_factory=session_factory,
+        )
 
 
 def _tenant_id() -> TenantId:
@@ -66,7 +100,8 @@ class TestMasterKeyGuard:
                 FernetPostgresVault()
 
     def test_valid_key_instantiates_ok(self) -> None:
-        vault = _vault()
+        mock_session = _make_mock_session()
+        vault = _vault(session_factory=_make_session_factory(mock_session))
         assert isinstance(vault, FernetPostgresVault)
 
 
@@ -108,42 +143,27 @@ class TestFernetRoundTrip:
 
 
 # ---------------------------------------------------------------------------
-# Task 3.3 — store / get / delete / list_keys with mocked session
+# Task 3.3 — store / get / delete / list_keys with mocked session_factory
 # ---------------------------------------------------------------------------
-
-
-def _make_mock_session(rows: list | None = None) -> AsyncMock:
-    """Build an AsyncMock that mimics an async SQLAlchemy session."""
-    session = AsyncMock()
-    session.begin = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(), __aexit__=AsyncMock()))
-    result = MagicMock()
-    result.scalars.return_value.all.return_value = rows or []
-    result.scalar_one_or_none.return_value = None
-    session.execute = AsyncMock(return_value=result)
-    session.add = MagicMock()
-    session.flush = AsyncMock()
-    return session
 
 
 class TestStoreGetDeleteWithMock:
     @pytest.mark.asyncio
     async def test_get_missing_key_raises_secret_not_found(self) -> None:
-        vault = _vault()
-        tenant_id = _tenant_id()
-        mock_session = _make_mock_session(rows=None)
+        mock_session = _make_mock_session()
         # scalar_one_or_none returns None → key doesn't exist
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_session.execute = AsyncMock(return_value=mock_result)
 
+        vault = _vault(session_factory=_make_session_factory(mock_session))
+        tenant_id = _tenant_id()
+
         with pytest.raises(SecretNotFound):
-            await vault.get(tenant_id, "missing_key", session=mock_session)
+            await vault.get(tenant_id, "missing_key")
 
     @pytest.mark.asyncio
     async def test_list_keys_returns_names_not_values(self) -> None:
-        vault = _vault()
-        tenant_id = _tenant_id()
-
         # Simulate two TenantSecretORM rows with key_name only
         row1 = MagicMock()
         row1.key_name = "api_key"
@@ -158,7 +178,10 @@ class TestStoreGetDeleteWithMock:
         mock_session.add = mock_add_audit
         mock_session.flush = AsyncMock()
 
-        keys = await vault.list_keys(tenant_id, session=mock_session)
+        vault = _vault(session_factory=_make_session_factory(mock_session))
+        tenant_id = _tenant_id()
+
+        keys = await vault.list_keys(tenant_id)
 
         assert keys == ["api_key", "oauth_token"]
         # Values must not appear
@@ -168,9 +191,6 @@ class TestStoreGetDeleteWithMock:
     @pytest.mark.asyncio
     async def test_store_writes_audit_log(self) -> None:
         """store() must call session.add() at least once for the audit log."""
-        vault = _vault()
-        tenant_id = _tenant_id()
-
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None  # new secret → insert
 
@@ -179,7 +199,10 @@ class TestStoreGetDeleteWithMock:
         mock_session.add = MagicMock()
         mock_session.flush = AsyncMock()
 
-        await vault.store(tenant_id, "api_key", "secret-value", session=mock_session)
+        vault = _vault(session_factory=_make_session_factory(mock_session))
+        tenant_id = _tenant_id()
+
+        await vault.store(tenant_id, "api_key", "secret-value")
 
         # session.add must be called at least twice: once for the secret, once for audit
         assert mock_session.add.call_count >= 2
@@ -187,7 +210,8 @@ class TestStoreGetDeleteWithMock:
     @pytest.mark.asyncio
     async def test_get_writes_audit_log(self) -> None:
         """get() must write an audit record even on success."""
-        vault = _vault()
+        mock_session = _make_mock_session()
+        vault = _vault(session_factory=_make_session_factory(mock_session))
         tenant_id = _tenant_id()
 
         encrypted = vault._encrypt("secret-value")
@@ -198,12 +222,11 @@ class TestStoreGetDeleteWithMock:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_secret_orm
 
-        mock_session = AsyncMock()
         mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session.add = MagicMock()
         mock_session.flush = AsyncMock()
 
-        result = await vault.get(tenant_id, "api_key", session=mock_session)
+        result = await vault.get(tenant_id, "api_key")
 
         assert result == "secret-value"
         # audit row must have been added
@@ -211,9 +234,6 @@ class TestStoreGetDeleteWithMock:
 
     @pytest.mark.asyncio
     async def test_delete_missing_key_raises_secret_not_found(self) -> None:
-        vault = _vault()
-        tenant_id = _tenant_id()
-
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
 
@@ -222,14 +242,15 @@ class TestStoreGetDeleteWithMock:
         mock_session.add = MagicMock()
         mock_session.flush = AsyncMock()
 
+        vault = _vault(session_factory=_make_session_factory(mock_session))
+        tenant_id = _tenant_id()
+
         with pytest.raises(SecretNotFound):
-            await vault.delete(tenant_id, "nonexistent_key", session=mock_session)
+            await vault.delete(tenant_id, "nonexistent_key")
 
     @pytest.mark.asyncio
     async def test_delete_existing_key_writes_audit_log(self) -> None:
-        vault = _vault()
         tenant_id = _tenant_id()
-
         mock_secret_orm = MagicMock()
         mock_secret_orm.tenant_id = tenant_id
 
@@ -242,7 +263,9 @@ class TestStoreGetDeleteWithMock:
         mock_session.delete = AsyncMock()
         mock_session.flush = AsyncMock()
 
-        await vault.delete(tenant_id, "api_key", session=mock_session)
+        vault = _vault(session_factory=_make_session_factory(mock_session))
+
+        await vault.delete(tenant_id, "api_key")
 
         # Must have deleted the ORM object and added an audit row
         mock_session.delete.assert_called_once_with(mock_secret_orm)
@@ -277,7 +300,6 @@ class TestAuditLogTamperPrevention:
         This verifies that audit rows are NEVER updated — each operation
         always produces a new INSERT into vault_audit_log.
         """
-        vault = _vault()
         tenant_id = _tenant_id()
         add_calls = []
 
@@ -289,7 +311,9 @@ class TestAuditLogTamperPrevention:
         mock_session.add = MagicMock(side_effect=lambda obj: add_calls.append(type(obj).__name__))
         mock_session.flush = AsyncMock()
 
-        await vault.store(tenant_id, "api_key", "value-1", session=mock_session)
+        vault = _vault(session_factory=_make_session_factory(mock_session))
+
+        await vault.store(tenant_id, "api_key", "value-1")
         # second store — simulate existing key (upsert)
         existing_orm = MagicMock()
         existing_orm.tenant_id = tenant_id
@@ -297,7 +321,7 @@ class TestAuditLogTamperPrevention:
         mock_result2.scalar_one_or_none.return_value = existing_orm
         mock_session.execute = AsyncMock(return_value=mock_result2)
 
-        await vault.store(tenant_id, "api_key", "value-2", session=mock_session)
+        await vault.store(tenant_id, "api_key", "value-2")
 
         # Count audit log adds — class name will be VaultAuditLogORM
         audit_adds = [c for c in add_calls if "audit" in c.lower() or "log" in c.lower()

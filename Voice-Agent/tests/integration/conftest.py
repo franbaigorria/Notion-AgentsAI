@@ -14,6 +14,7 @@ Postgres (e.g. CI without a Postgres service, M1 dev machines with Docker off).
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 
 import pytest
 import pytest_asyncio
@@ -31,8 +32,6 @@ if not os.environ.get("VAULT_MASTER_KEY"):
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
-
-from core.db.models import Base
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +52,7 @@ async def _postgres_is_available(url: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Session-scoped engine + schema creation
+# Session-scoped engine — schema via Alembic
 # ---------------------------------------------------------------------------
 
 
@@ -61,8 +60,15 @@ async def _postgres_is_available(url: str) -> bool:
 async def pg_engine() -> AsyncEngine:  # type: ignore[return]
     """Create async engine for the test session.
 
+    Uses Alembic (upgrade head / downgrade base) to manage schema instead of
+    Base.metadata.create_all, so integration tests exercise real migrations.
     Skips the entire session if Postgres is not reachable.
     """
+    import asyncio
+
+    from alembic import command
+    from alembic.config import Config
+
     url = os.environ["DATABASE_URL"]
     available = await _postgres_is_available(url)
     if not available:
@@ -73,15 +79,22 @@ async def pg_engine() -> AsyncEngine:  # type: ignore[return]
 
     engine = create_async_engine(url, poolclass=NullPool, echo=False)
 
-    # Create all tables (idempotent — uses CREATE TABLE IF NOT EXISTS via checkfirst)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Run Alembic migrations in a thread (alembic's command API is sync but
+    # the env.py internally uses asyncio.run — so we use run_in_executor to avoid
+    # blocking the event loop while Alembic takes over the event loop for its run)
+    alembic_cfg = Config("alembic.ini")
+    # Pass DATABASE_URL via env var — alembic/env.py reads it from os.environ
+    os.environ["DATABASE_URL"] = url
+    await asyncio.get_event_loop().run_in_executor(
+        None, lambda: command.upgrade(alembic_cfg, "head")
+    )
 
     yield engine
 
-    # Tear down schema after the full session
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    # Tear down schema via Alembic downgrade to base after the full session
+    await asyncio.get_event_loop().run_in_executor(
+        None, lambda: command.downgrade(alembic_cfg, "base")
+    )
 
     await engine.dispose()
 
@@ -97,7 +110,7 @@ async def pg_session_factory(pg_engine: AsyncEngine) -> async_sessionmaker[Async
 
 
 # ---------------------------------------------------------------------------
-# Function-scoped session — each test gets a clean slate via TRUNCATE
+# Function-scoped session — each test gets a clean slate via DELETE
 # ---------------------------------------------------------------------------
 
 
@@ -108,29 +121,46 @@ async def db_session(
 ) -> AsyncSession:  # type: ignore[return]
     """Yield a fresh session per test.
 
-    Truncates all test tables after each test to guarantee isolation.
-    Uses TRUNCATE ... CASCADE so FK-linked tables are cleaned in one shot.
+    Deletes all rows from all test tables after each test to guarantee isolation.
     """
+    from core.db.models import Base
+
     async with pg_session_factory() as session:
         async with session.begin():
             yield session
-        # Rollback is automatic on exit if not committed — but for TRUNCATE-based
-        # cleanup we do an explicit truncate after each test.
 
-    # Truncate all tables after the test (outside the session context)
+    # Delete all rows after the test (outside the session context)
     async with pg_engine.begin() as conn:
         for table in reversed(Base.metadata.sorted_tables):
             await conn.execute(table.delete())
 
 
 # ---------------------------------------------------------------------------
-# Vault fixture
+# Vault fixture — injects db_session as the session_factory
+#
+# The vault manages sessions internally via session_factory. In tests, we inject
+# a factory that yields the SAME db_session so vault operations are visible to
+# test assertions running in that session (no cross-transaction visibility issues).
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def vault() -> "FernetPostgresVault":  # noqa: F821
-    """Return a FernetPostgresVault instance for integration tests."""
+@pytest_asyncio.fixture
+async def vault(db_session: AsyncSession) -> "FernetPostgresVault":  # noqa: F821
+    """Return a FernetPostgresVault wired to the current test db_session.
+
+    Injecting a session_factory that returns the existing db_session ensures
+    that vault.store()/get()/delete() operations run in the same transaction
+    as the test, making rows visible to subsequent db_session queries without
+    committing.
+    """
     from core.vault.fernet_postgres import FernetPostgresVault
 
-    return FernetPostgresVault(caller_context="integration_test")
+    @asynccontextmanager
+    async def _shared_session_factory():
+        """Yield the existing db_session without opening a new transaction."""
+        yield db_session
+
+    return FernetPostgresVault(
+        caller_context="integration_test",
+        session_factory=_shared_session_factory,
+    )

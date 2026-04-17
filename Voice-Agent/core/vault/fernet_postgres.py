@@ -6,6 +6,7 @@ Architecture:
   - Stores ciphertext as BYTEA in the `tenant_secrets` table
   - Appends an audit row to `vault_audit_log` on EVERY operation
   - Master key loaded exclusively from VAULT_MASTER_KEY env var at instantiation
+  - Session managed internally via a session_factory (injected or defaulting to get_session)
 
 Security invariants:
   - Plaintext values are NEVER logged
@@ -18,16 +19,16 @@ Usage::
     import os
     os.environ["VAULT_MASTER_KEY"] = "..."  # Fernet key
 
-    async with get_session() as session:
-        vault = FernetPostgresVault(caller_context="knowledge_provider")
-        await vault.store(tenant_id, "gcal_token", raw_token, session=session)
-        token = await vault.get(tenant_id, "gcal_token", session=session)
+    vault = FernetPostgresVault(caller_context="knowledge_provider")
+    await vault.store(tenant_id, "gcal_token", raw_token)
+    token = await vault.get(tenant_id, "gcal_token")
 """
 
 from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+from typing import Callable
 from uuid import uuid4
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -44,13 +45,25 @@ from core.vault.base import (
 )
 
 
+def _default_session_factory() -> Callable:
+    """Return get_session from core.db.engine.
+
+    Imported lazily to avoid circular imports and allow test injection.
+    """
+    from core.db.engine import get_session
+
+    return get_session
+
+
 class FernetPostgresVault(CredentialVault):
     """Fernet-encrypted credential vault backed by Postgres.
 
     Instantiation fails fast if VAULT_MASTER_KEY is absent or invalid.
-    All operations accept an optional `session` parameter to allow dependency
-    injection in tests. When `session` is None, the caller is responsible for
-    providing a session (typically via get_session() context manager).
+
+    Sessions are managed internally via a `session_factory` — an async context
+    manager factory that yields an AsyncSession. This makes the public API match
+    the CredentialVault ABC exactly (no `session=` kwarg exposure) while still
+    allowing full dependency injection in tests via `session_factory`.
 
     APPEND-ONLY AUDIT LOG GUARANTEE:
         This class does NOT expose any method to UPDATE or DELETE rows in
@@ -63,11 +76,24 @@ class FernetPostgresVault(CredentialVault):
         Every SELECT on tenant_secrets includes WHERE tenant_id = :tenant_id.
         There is no code path that returns data from a different tenant_id
         than the one passed as argument.
+
+    Args:
+        master_key: Optional Fernet key string. Falls back to VAULT_MASTER_KEY env var.
+        caller_context: Optional label recorded in the audit log for every operation.
+        session_factory: Optional async context manager factory that yields AsyncSession.
+                         Defaults to core.db.engine.get_session (production singleton).
+                         Inject a test factory in tests to avoid real DB calls.
     """
 
-    def __init__(self, *, caller_context: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        master_key: str | None = None,
+        caller_context: str | None = None,
+        session_factory: Callable | None = None,
+    ) -> None:
         _env = os.getenv("ENV", "production")
-        _raw_key = os.getenv("VAULT_MASTER_KEY")
+        _raw_key = master_key or os.getenv("VAULT_MASTER_KEY")
 
         if _raw_key is None:
             if _env != "test":
@@ -91,6 +117,8 @@ class FernetPostgresVault(CredentialVault):
             ) from exc
 
         self._caller_context = caller_context
+        # Defer resolution of default factory so DB env vars aren't required at import time.
+        self._session_factory = session_factory or _default_session_factory()
 
     # -------------------------------------------------------------------------
     # Encryption helpers (internal — not part of ABC public API)
@@ -146,80 +174,84 @@ class FernetPostgresVault(CredentialVault):
         tenant_id: TenantId,
         key_name: str,
         value: str,
-        *,
-        session: AsyncSession,
     ) -> None:
         """Encrypt and upsert a secret for the tenant. Audit: action='store'.
 
         If a secret with key_name already exists for this tenant, its ciphertext
         is replaced (upsert). Each call produces a new audit row — NEVER an
         updated row.
+
+        Session is managed internally via the injected session_factory.
+        The audit log row is committed atomically with the secret write.
         """
         ciphertext = self._encrypt(value)
 
-        # Look up existing row (for upsert)
-        result = await session.execute(
-            select(TenantSecretORM).where(
-                TenantSecretORM.tenant_id == tenant_id,
-                TenantSecretORM.key_name == key_name,
+        async with self._session_factory() as session:
+            # Look up existing row (for upsert)
+            result = await session.execute(
+                select(TenantSecretORM).where(
+                    TenantSecretORM.tenant_id == tenant_id,
+                    TenantSecretORM.key_name == key_name,
+                )
             )
-        )
-        existing = result.scalar_one_or_none()
+            existing = result.scalar_one_or_none()
 
-        if existing is not None:
-            # Upsert — update ciphertext in place
-            existing.ciphertext = ciphertext
-            existing.rotated_at = datetime.now(tz=timezone.utc)
-        else:
-            # Insert new row
-            secret_row = TenantSecretORM(
-                id=uuid4(),
-                tenant_id=tenant_id,
-                key_name=key_name,
-                ciphertext=ciphertext,
-            )
-            session.add(secret_row)
+            if existing is not None:
+                # Upsert — update ciphertext in place
+                existing.ciphertext = ciphertext
+                existing.rotated_at = datetime.now(tz=timezone.utc)
+            else:
+                # Insert new row
+                secret_row = TenantSecretORM(
+                    id=uuid4(),
+                    tenant_id=tenant_id,
+                    key_name=key_name,
+                    ciphertext=ciphertext,
+                )
+                session.add(secret_row)
 
-        # Audit — ALWAYS a new INSERT (never updates existing audit rows)
-        self._audit(session, tenant_id, key_name, "store")
-        await session.flush()
+            # Audit — ALWAYS a new INSERT (never updates existing audit rows)
+            self._audit(session, tenant_id, key_name, "store")
+            await session.flush()
 
     async def get(
         self,
         tenant_id: TenantId,
         key_name: str,
-        *,
-        session: AsyncSession,
     ) -> str:
         """Retrieve and decrypt a secret for the tenant. Audit: action='get'.
 
         Cross-tenant isolation: the WHERE clause always includes tenant_id so
         it is impossible to retrieve another tenant's secret.
 
+        Session is managed internally via the injected session_factory.
+        The audit log row is committed atomically with the read.
+
         Raises:
             SecretNotFound: if the key does not exist for this tenant.
             VaultDecryptError: if the ciphertext cannot be decrypted.
         """
-        result = await session.execute(
-            select(TenantSecretORM).where(
-                TenantSecretORM.tenant_id == tenant_id,
-                TenantSecretORM.key_name == key_name,
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(TenantSecretORM).where(
+                    TenantSecretORM.tenant_id == tenant_id,
+                    TenantSecretORM.key_name == key_name,
+                )
             )
-        )
-        secret_orm = result.scalar_one_or_none()
+            secret_orm = result.scalar_one_or_none()
 
-        if secret_orm is None:
+            if secret_orm is None:
+                self._audit(session, tenant_id, key_name, "get")
+                await session.flush()
+                raise SecretNotFound(
+                    f"Secret '{key_name}' not found for tenant {tenant_id}."
+                )
+
+            plaintext = self._decrypt(secret_orm.ciphertext)
+
+            # Audit — ALWAYS a new INSERT
             self._audit(session, tenant_id, key_name, "get")
             await session.flush()
-            raise SecretNotFound(
-                f"Secret '{key_name}' not found for tenant {tenant_id}."
-            )
-
-        plaintext = self._decrypt(secret_orm.ciphertext)
-
-        # Audit — ALWAYS a new INSERT
-        self._audit(session, tenant_id, key_name, "get")
-        await session.flush()
 
         return plaintext
 
@@ -227,54 +259,56 @@ class FernetPostgresVault(CredentialVault):
         self,
         tenant_id: TenantId,
         key_name: str,
-        *,
-        session: AsyncSession,
     ) -> None:
         """Physically remove a secret for the tenant. Audit: action='delete'.
+
+        Session is managed internally via the injected session_factory.
+        The audit log row is committed atomically with the delete.
 
         Raises:
             SecretNotFound: if the key does not exist for this tenant.
         """
-        result = await session.execute(
-            select(TenantSecretORM).where(
-                TenantSecretORM.tenant_id == tenant_id,
-                TenantSecretORM.key_name == key_name,
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(TenantSecretORM).where(
+                    TenantSecretORM.tenant_id == tenant_id,
+                    TenantSecretORM.key_name == key_name,
+                )
             )
-        )
-        secret_orm = result.scalar_one_or_none()
+            secret_orm = result.scalar_one_or_none()
 
-        if secret_orm is None:
+            if secret_orm is None:
+                self._audit(session, tenant_id, key_name, "delete")
+                await session.flush()
+                raise SecretNotFound(
+                    f"Secret '{key_name}' not found for tenant {tenant_id}."
+                )
+
+            await session.delete(secret_orm)
+
+            # Audit — ALWAYS a new INSERT
             self._audit(session, tenant_id, key_name, "delete")
             await session.flush()
-            raise SecretNotFound(
-                f"Secret '{key_name}' not found for tenant {tenant_id}."
-            )
-
-        await session.delete(secret_orm)
-
-        # Audit — ALWAYS a new INSERT
-        self._audit(session, tenant_id, key_name, "delete")
-        await session.flush()
 
     async def list_keys(
         self,
         tenant_id: TenantId,
-        *,
-        session: AsyncSession,
     ) -> list[str]:
         """Return key names only for the tenant. Values are NEVER returned.
 
+        Session is managed internally via the injected session_factory.
         Audit: action='list_keys'.
         """
-        result = await session.execute(
-            select(TenantSecretORM).where(
-                TenantSecretORM.tenant_id == tenant_id,
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(TenantSecretORM).where(
+                    TenantSecretORM.tenant_id == tenant_id,
+                )
             )
-        )
-        rows = result.scalars().all()
+            rows = result.scalars().all()
 
-        # Audit — ALWAYS a new INSERT
-        self._audit(session, tenant_id, "", "list_keys")
-        await session.flush()
+            # Audit — ALWAYS a new INSERT
+            self._audit(session, tenant_id, "", "list_keys")
+            await session.flush()
 
         return [row.key_name for row in rows]

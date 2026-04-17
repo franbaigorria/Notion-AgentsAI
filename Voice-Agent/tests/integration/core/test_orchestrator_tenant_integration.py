@@ -38,12 +38,6 @@ async def registry(db_session: AsyncSession) -> PostgresTenantRegistry:
     return PostgresTenantRegistry(session=db_session)
 
 
-@pytest.fixture
-def real_vault() -> FernetPostgresVault:
-    """Vault real — usa VAULT_MASTER_KEY del conftest."""
-    return FernetPostgresVault(caller_context="integration_test_orchestrator")
-
-
 @pytest_asyncio.fixture
 async def active_tenant(db_session: AsyncSession) -> Tenant:
     """Crea y retorna un tenant activo en la DB de test."""
@@ -70,7 +64,7 @@ async def active_tenant(db_session: AsyncSession) -> Tenant:
 async def test_flag_off_returns_none_no_db_call(
     active_tenant: Tenant,
     registry: PostgresTenantRegistry,
-    real_vault: FernetPostgresVault,
+    vault: FernetPostgresVault,
     monkeypatch,
 ):
     """Flag OFF: build_tenant_context_from_env retorna None, sin tocar Postgres."""
@@ -79,7 +73,7 @@ async def test_flag_off_returns_none_no_db_call(
     result = await build_tenant_context_from_env(
         tenant_id=active_tenant.id,
         registry=registry,
-        vault=real_vault,
+        vault=vault,
     )
 
     assert result is None
@@ -90,7 +84,7 @@ async def test_flag_off_returns_none_no_db_call(
 async def test_flag_false_returns_none(
     active_tenant: Tenant,
     registry: PostgresTenantRegistry,
-    real_vault: FernetPostgresVault,
+    vault: FernetPostgresVault,
     monkeypatch,
 ):
     """Flag=false: retorna None."""
@@ -99,7 +93,7 @@ async def test_flag_false_returns_none(
     result = await build_tenant_context_from_env(
         tenant_id=active_tenant.id,
         registry=registry,
-        vault=real_vault,
+        vault=vault,
     )
 
     assert result is None
@@ -115,7 +109,7 @@ async def test_flag_false_returns_none(
 async def test_flag_on_returns_valid_tenant_context(
     active_tenant: Tenant,
     registry: PostgresTenantRegistry,
-    real_vault: FernetPostgresVault,
+    vault: FernetPostgresVault,
     monkeypatch,
 ):
     """Flag ON + tenant activo → TenantContext con datos correctos desde Postgres."""
@@ -124,14 +118,14 @@ async def test_flag_on_returns_valid_tenant_context(
     result = await build_tenant_context_from_env(
         tenant_id=active_tenant.id,
         registry=registry,
-        vault=real_vault,
+        vault=vault,
     )
 
     assert isinstance(result, TenantContext)
     assert result.tenant.id == active_tenant.id
     assert result.tenant.name == "Clínica Orquestador Test"
     assert result.tenant.vertical == "clinica"
-    assert result.vault is real_vault
+    assert result.vault is vault
 
 
 @pytest.mark.asyncio
@@ -139,7 +133,7 @@ async def test_flag_on_returns_valid_tenant_context(
 async def test_flag_on_tenant_context_is_frozen(
     active_tenant: Tenant,
     registry: PostgresTenantRegistry,
-    real_vault: FernetPostgresVault,
+    vault: FernetPostgresVault,
     monkeypatch,
 ):
     """TenantContext resultante es frozen — no se puede mutar."""
@@ -148,7 +142,7 @@ async def test_flag_on_tenant_context_is_frozen(
     ctx = await build_tenant_context_from_env(
         tenant_id=active_tenant.id,
         registry=registry,
-        vault=real_vault,
+        vault=vault,
     )
     assert ctx is not None
 
@@ -161,41 +155,36 @@ async def test_flag_on_tenant_context_is_frozen(
 async def test_flag_on_get_secret_lazy_fetch(
     active_tenant: Tenant,
     registry: PostgresTenantRegistry,
-    real_vault: FernetPostgresVault,
-    db_session: AsyncSession,
+    vault: FernetPostgresVault,
     monkeypatch,
 ):
-    """get_secret() en TenantContext real recupera el secreto correctamente."""
+    """get_secret() en TenantContext real recupera el secreto via vault interno.
+
+    Now that FernetPostgresVault manages its own sessions via session_factory,
+    TenantContext.get_secret() works end-to-end without requiring the caller to
+    pass a session. This test proves the full delegation chain is wired correctly.
+    """
     monkeypatch.setenv("USE_TENANT_REGISTRY", "true")
 
-    # Store a secret in the vault first
-    await real_vault.store(
+    # Store a secret in the vault first (vault manages its own session)
+    await vault.store(
         active_tenant.id,
         "test_api_key",
         "super-secret-value-123",
-        session=db_session,
     )
 
     ctx = await build_tenant_context_from_env(
         tenant_id=active_tenant.id,
         registry=registry,
-        vault=real_vault,
+        vault=vault,
     )
     assert ctx is not None
 
-    # Lazy fetch — vault not yet called during build
-    # Now call get_secret which needs a session
-    # Note: FernetPostgresVault.get() requires session= kwarg.
-    # TenantContext.get_secret() passes only (tenant_id, key_name).
-    # This is intentional — at the orchestrator level, the session is provided
-    # via a session factory. Here we test that the delegation chain works.
-    # Since FernetPostgresVault.get() requires `session=`, TenantContext.get_secret()
-    # must pass the session through. We test the full wiring via the vault directly.
-    plaintext = await real_vault.get(
-        active_tenant.id,
-        "test_api_key",
-        session=db_session,
-    )
+    # Lazy fetch — vault not called during build, called now via get_secret()
+    # This is the critical path that was broken (CRIT-01): vault.get() required session=
+    # but TenantContext.get_secret() called vault.get(tenant_id, key_name) without it.
+    # Now the vault manages its own sessions — this works correctly.
+    plaintext = await ctx.get_secret("test_api_key")
     assert plaintext == "super-secret-value-123"
 
 
@@ -203,7 +192,7 @@ async def test_flag_on_get_secret_lazy_fetch(
 @pytest.mark.integration
 async def test_flag_on_unknown_tenant_raises_tenant_not_found(
     registry: PostgresTenantRegistry,
-    real_vault: FernetPostgresVault,
+    vault: FernetPostgresVault,
     monkeypatch,
 ):
     """Flag ON + tenant_id inexistente → TenantNotFound propagado, no silenciado."""
@@ -215,5 +204,5 @@ async def test_flag_on_unknown_tenant_raises_tenant_not_found(
         await build_tenant_context_from_env(
             tenant_id=nonexistent_id,
             registry=registry,
-            vault=real_vault,
+            vault=vault,
         )

@@ -73,18 +73,14 @@ async def entrypoint(ctx: JobContext) -> None:
 
     if tenant_id is not None:
         from core.orchestrator.agent import build_tenant_context_from_env
-        from core.tenants.postgres import PostgresTenantRegistry
         from core.vault.fernet_postgres import FernetPostgresVault
-        from core.db.engine import get_session
 
+        # Vault manages its own sessions internally — no session wrapper needed here.
         vault = FernetPostgresVault(caller_context="pipeline_agent")
-        async with get_session() as session:
-            registry = PostgresTenantRegistry(session=session)
-            tenant_ctx = await build_tenant_context_from_env(
-                tenant_id=tenant_id,
-                registry=registry,
-                vault=vault,
-            )
+        tenant_ctx = await build_tenant_context_from_env(
+            tenant_id=tenant_id,
+            vault=vault,
+        )
 
     if tenant_ctx is not None:
         logger.info(
