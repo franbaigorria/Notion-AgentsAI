@@ -21,10 +21,10 @@ def main():
     mode = os.environ.get("AGENT_MODE", "pipeline").lower().strip()
 
     if mode == "realtime":
-        print(f"[LAUNCHER] Arrancando en modo: realtime")
+        print("[LAUNCHER] Arrancando en modo: realtime")
         from apps.realtime.agent import main as run
     elif mode == "pipeline":
-        print(f"[LAUNCHER] Arrancando en modo: pipeline")
+        print("[LAUNCHER] Arrancando en modo: pipeline")
         from apps.pipeline.agent import main as run
     else:
         print(

@@ -1,7 +1,6 @@
 """Tests para OpenAITTS."""
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 from core.tts.base import TTSResult
 from core.tts.openai_tts import OpenAITTS
