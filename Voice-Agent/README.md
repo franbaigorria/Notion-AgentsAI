@@ -116,6 +116,23 @@ For key rotation procedures, see `docs/runbooks/master-key-rotation.md`.
 
 ---
 
+## 🚀 Try it on Railway
+
+End-to-end walkthrough from zero (Railway project → Postgres plugin → secrets →
+deploy → seed a tenant → dispatch the agent and join as operator) is in
+**`docs/runbooks/railway-deploy.md`**.
+
+Key scripts:
+
+- `scripts/seed_tenant.py` — create/upsert a tenant + store provider secrets in the vault.
+- `scripts/test_client.py` — dispatch the agent via `LiveKitAPI` and generate a
+  Playground URL so the operator can join the room and talk to the agent.
+
+`railway.json` runs `uv run alembic upgrade head` as the pre-deploy command, so
+migrations apply automatically on every deploy.
+
+---
+
 ## 📚 Workspace
 
 Todo el trabajo del equipo se registra en Notion (teamspace: Agent AI). Ver `.agents/skills/voice-agent-workspace/SKILL.md` para el protocolo completo de cómo y dónde guardar cada tipo de información.
