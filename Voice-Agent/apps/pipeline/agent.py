@@ -47,6 +47,7 @@ def _extract_tenant_id_from_job(ctx: JobContext):
     from core.tenants.base import TenantId
 
     raw = ctx.job.metadata
+    print(f"[DEBUG] Raw metadata received: '{raw}'")
     if not raw:
         return None
     try:
@@ -81,6 +82,10 @@ async def entrypoint(ctx: JobContext) -> None:
             tenant_id=tenant_id,
             vault=vault,
         )
+    if tenant_ctx is not None:
+        print(f"[DEBUG] Multi-tenant ACTIVO para el tenant: {tenant_ctx.tenant.id}")
+    else:
+        print(f"[DEBUG] Modo YAML (ctx es None). Registry enabled: {os.environ.get('USE_TENANT_REGISTRY')}")
 
     if tenant_ctx is not None:
         logger.info(
