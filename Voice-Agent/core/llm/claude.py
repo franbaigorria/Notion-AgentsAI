@@ -41,12 +41,18 @@ Reglas:
 
 
 class ClaudeLLM(LLMProvider):
-    def __init__(self, model: str = "claude-sonnet-4-6"):
+    def __init__(
+        self, model: str = "claude-sonnet-4-6", api_key: str | None = None
+    ):
         self.model = model
+        self.api_key = api_key
 
     def as_livekit_plugin(self) -> lk_anthropic.LLM:
         """Retorna el plugin LiveKit para usar en AgentSession."""
-        return lk_anthropic.LLM(model=self.model)
+        kwargs: dict = {"model": self.model}
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        return lk_anthropic.LLM(**kwargs)
 
     async def complete(self, context: LLMContext) -> LLMResult:
         """Genera una respuesta usando la API de Anthropic directamente."""

@@ -51,6 +51,7 @@ class GeminiTTS(TTSProvider, tts.TTS):
         voice: str = "Charon",
         model: str = "gemini-3.1-flash-tts-preview",
         instructions: str | None = None,
+        api_key: str | None = None,
     ):
         super().__init__(
             capabilities=tts.TTSCapabilities(streaming=False),
@@ -61,9 +62,18 @@ class GeminiTTS(TTSProvider, tts.TTS):
         self.model_name = model
         self.instructions = instructions
 
-        self.api_key = os.environ.get("GEMINI_API_KEY")
+        # Precedence: explicit api_key → GOOGLE_API_KEY → GEMINI_API_KEY.
+        # Vault key unified under "google" (see _PROVIDER_VAULT_KEYS).
+        self.api_key = (
+            api_key
+            or os.environ.get("GOOGLE_API_KEY")
+            or os.environ.get("GEMINI_API_KEY")
+        )
         if not self.api_key:
-            raise ValueError("GEMINI_API_KEY no está configurada")
+            raise ValueError(
+                "Gemini API key not configured. Set GOOGLE_API_KEY (preferred) "
+                "or GEMINI_API_KEY, or pass api_key explicitly."
+            )
 
         self._client = genai.Client(api_key=self.api_key)
 

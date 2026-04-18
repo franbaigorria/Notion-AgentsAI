@@ -249,35 +249,37 @@ def test_estimate_cost_returns_tts_result(gemini_env):
 # ── build_tts() integration ───────────────────────────────────────────────────
 
 
-def test_build_tts_gemini_returns_livekit_plugin(monkeypatch):
+async def test_build_tts_gemini_returns_livekit_plugin(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     with patch("core.tts.gemini_tts.genai.Client"):
         from core.orchestrator.agent import build_tts
 
-        result = build_tts({"tts_provider": "gemini", "voice_settings": {}})
+        result = await build_tts({"tts_provider": "gemini", "voice_settings": {}})
         # GeminiTTS.as_livekit_plugin() returns self — result IS a GeminiTTS
         from core.tts.gemini_tts import GeminiTTS
 
         assert isinstance(result, GeminiTTS)
 
 
-def test_build_tts_gemini_passes_voice_from_config(monkeypatch):
+async def test_build_tts_gemini_passes_voice_from_config(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     with patch("core.tts.gemini_tts.genai.Client"):
         from core.orchestrator.agent import build_tts
         from core.tts.gemini_tts import GeminiTTS
 
-        result = build_tts({"tts_provider": "gemini", "voice_id": "Puck", "voice_settings": {}})
+        result = await build_tts(
+            {"tts_provider": "gemini", "voice_id": "Puck", "voice_settings": {}}
+        )
         assert isinstance(result, GeminiTTS)
         assert result.voice == "Puck"
 
 
-def test_build_tts_gemini_default_voice_is_charon(monkeypatch):
+async def test_build_tts_gemini_default_voice_is_charon(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     with patch("core.tts.gemini_tts.genai.Client"):
         from core.orchestrator.agent import build_tts
         from core.tts.gemini_tts import GeminiTTS
 
-        result = build_tts({"tts_provider": "gemini", "voice_settings": {}})
+        result = await build_tts({"tts_provider": "gemini", "voice_settings": {}})
         assert isinstance(result, GeminiTTS)
         assert result.voice == "Charon"

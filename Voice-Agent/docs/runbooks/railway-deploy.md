@@ -93,6 +93,36 @@ railway logs                     # should show "DATABASE_URL scheme rewritten to
 
 ---
 
+## Per-tenant vault keys
+
+With `USE_TENANT_REGISTRY=true`, provider API keys are fetched from the vault
+per tenant — NOT from global Railway env vars. The worker builders resolve
+each layer's key via `TenantContext.get_secret(<vault_key>)` at agent boot.
+
+**One canonical key per provider, regardless of layer** (Deepgram used as both
+STT and TTS shares a single `deepgram` vault entry):
+
+| Vault key | Provider (layers it covers) | Env var fallback (YAML mode only) |
+|-----------|-----------------------------|-----------------------------------|
+| `deepgram`   | Deepgram STT + TTS                | `DEEPGRAM_API_KEY` |
+| `elevenlabs` | ElevenLabs STT + TTS              | `ELEVEN_API_KEY` |
+| `claude`     | Anthropic Claude LLM              | `ANTHROPIC_API_KEY` |
+| `openai`     | OpenAI LLM + STT + TTS + Realtime | `OPENAI_API_KEY` |
+| `groq`       | Groq LLM                          | `GROQ_API_KEY` |
+| `cartesia`   | Cartesia TTS                      | `CARTESIA_API_KEY` |
+| `google`     | Gemini LLM + GeminiTTS            | `GOOGLE_API_KEY` (preferred) or `GEMINI_API_KEY` |
+| `fish_audio` | Fish Audio TTS                    | `FISH_AUDIO_API_KEY` |
+
+When `USE_TENANT_REGISTRY=true` and the vault has the secret → the plugin
+receives the per-tenant key.
+When `USE_TENANT_REGISTRY=false` OR the vault lookup yields nothing → the
+plugin falls back to its env-var default listed above (backward compat).
+
+**On Railway with multi-tenant mode**: REMOVE the global `*_API_KEY` env vars
+(or leave them as a safety net) — the vault is the source of truth.
+
+---
+
 ## Step 5: Seed the test tenant
 
 Run `scripts/seed_tenant.py` against the Railway Postgres instance. The

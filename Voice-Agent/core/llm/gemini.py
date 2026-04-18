@@ -41,11 +41,23 @@ Reglas:
 
 
 class GeminiLLM(LLMProvider):
-    def __init__(self, model: str = "gemini-3.1-flash-lite"):
+    def __init__(
+        self, model: str = "gemini-3.1-flash-lite", api_key: str | None = None
+    ):
         self.model = model
-        self.api_key = os.environ.get("GEMINI_API_KEY")
+        # Precedence: explicit api_key → GOOGLE_API_KEY → GEMINI_API_KEY.
+        # Unified vault key is "google" (see _PROVIDER_VAULT_KEYS); both env vars
+        # tolerated for local dev backward compat.
+        self.api_key = (
+            api_key
+            or os.environ.get("GOOGLE_API_KEY")
+            or os.environ.get("GEMINI_API_KEY")
+        )
         if not self.api_key:
-            raise ValueError("GEMINI_API_KEY no está configurada")
+            raise ValueError(
+                "Gemini API key not configured. Set GOOGLE_API_KEY (preferred) "
+                "or GEMINI_API_KEY, or pass api_key explicitly."
+            )
 
     def as_livekit_plugin(self) -> lk_google.LLM:
         """Retorna el plugin nativo de LiveKit para Google Gemini."""

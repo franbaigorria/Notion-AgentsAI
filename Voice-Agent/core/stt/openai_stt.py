@@ -29,18 +29,23 @@ class OpenAISTT(STTProvider):
         model: str = "gpt-4o-mini-transcribe",
         language: str = "es",
         use_realtime: bool = True,
+        api_key: str | None = None,
     ):
         self.model = model
         self.language = language
         self.use_realtime = use_realtime
+        self.api_key = api_key
 
     def as_livekit_plugin(self) -> lk_openai.STT:
         """Retorna el plugin LiveKit para usar en AgentSession."""
-        return lk_openai.STT(
-            model=self.model,
-            language=self.language,
-            use_realtime=self.use_realtime,
-        )
+        kwargs: dict = {
+            "model": self.model,
+            "language": self.language,
+            "use_realtime": self.use_realtime,
+        }
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        return lk_openai.STT(**kwargs)
 
     async def transcribe(self, audio: bytes, language: str) -> STTResult:
         """Transcripción directa via API de OpenAI (solo use_realtime=False).

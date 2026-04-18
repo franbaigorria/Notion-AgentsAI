@@ -36,12 +36,16 @@ Reglas:
 
 
 class OpenAILLM(LLMProvider):
-    def __init__(self, model: str = "gpt-4o-mini"):
+    def __init__(self, model: str = "gpt-4o-mini", api_key: str | None = None):
         self.model = model
+        self.api_key = api_key
 
     def as_livekit_plugin(self) -> lk_openai.LLM:
         """Retorna el plugin LiveKit para usar en AgentSession."""
-        return lk_openai.LLM(model=self.model)
+        kwargs: dict = {"model": self.model}
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        return lk_openai.LLM(**kwargs)
 
     async def complete(self, context: LLMContext) -> LLMResult:
         """Genera una respuesta usando la API de OpenAI directamente."""

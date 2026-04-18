@@ -17,9 +17,15 @@ _COST_PER_CHAR_USD = 0.00001
 class CartesiaTTS(TTSProvider):
     """TTS via Cartesia Sonic — streaming WebSocket en LiveKit."""
 
-    def __init__(self, voice_id: str, model: str = "sonic-multilingual"):
+    def __init__(
+        self,
+        voice_id: str,
+        model: str = "sonic-multilingual",
+        api_key: str | None = None,
+    ):
         self.voice_id = voice_id
         self.model = model
+        self.api_key = api_key or os.environ.get("CARTESIA_API_KEY")
 
     def as_livekit_plugin(self):
         """Retorna el plugin LiveKit configurado para Cartesia.
@@ -27,14 +33,13 @@ class CartesiaTTS(TTSProvider):
         Envuelto con _make_preprocessed_tts para eliminar <tone:X> antes
         de que lleguen a la API de Cartesia.
         """
-        api_key = os.environ.get("CARTESIA_API_KEY")
-        if not api_key:
+        if not self.api_key:
             raise ValueError("CARTESIA_API_KEY no está configurada")
 
         plugin = lk_cartesia.TTS(
             voice=self.voice_id,
             model=self.model,
-            api_key=api_key,
+            api_key=self.api_key,
         )
         return _make_preprocessed_tts(plugin, strip_tone_tags)
 

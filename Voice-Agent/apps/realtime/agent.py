@@ -95,7 +95,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     await ctx.connect()
 
-    session = AgentSession(llm=build_realtime_llm(config))
+    session = AgentSession(llm=await build_realtime_llm(config, tenant_ctx=tenant_ctx))
 
     session.on("metrics_collected", lambda ev: log_metrics(ev.metrics))
 
