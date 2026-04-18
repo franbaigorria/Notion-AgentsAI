@@ -46,6 +46,9 @@ def _extract_tenant_id_from_job(ctx: JobContext):
     from uuid import UUID
     from core.tenants.base import TenantId
 
+    # Imprimimos todo el objeto para ver qué campos tiene poblados
+    print(f"[DEBUG] Full Job Object: {ctx.job}")
+    
     raw = ctx.job.metadata
     print(f"[DEBUG] Raw metadata received: '{raw}'")
     if not raw:
