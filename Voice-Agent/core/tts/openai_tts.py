@@ -31,11 +31,13 @@ class OpenAITTS(TTSProvider):
         model: str = "gpt-4o-mini-tts",
         instructions: str | None = None,
         speed: float = 1.0,
+        api_key: str | None = None,
     ):
         self.voice = voice
         self.model = model
         self.instructions = instructions
         self.speed = speed
+        self.api_key = api_key
 
     def as_livekit_plugin(self):
         """Retorna el plugin LiveKit para usar en AgentSession.
@@ -50,6 +52,8 @@ class OpenAITTS(TTSProvider):
         }
         if self.instructions is not None:
             kwargs["instructions"] = self.instructions
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
         plugin = lk_openai.TTS(**kwargs)
         return _make_preprocessed_tts(plugin, strip_tone_tags)
 

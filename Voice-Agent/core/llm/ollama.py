@@ -42,6 +42,7 @@ class OllamaLLM(LLMProvider):
         self,
         model: str = "gemma4:e4b",
         base_url: str = _DEFAULT_BASE_URL,
+        api_key: str | None = None,  # noqa: ARG002 — accepted for interface uniformity; Ollama is local
     ):
         self.model = model
         self.base_url = base_url

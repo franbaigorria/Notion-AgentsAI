@@ -102,9 +102,9 @@ async def entrypoint(ctx: JobContext) -> None:
 
     session = AgentSession(
         vad=silero.VAD.load(),
-        stt=build_stt(config),
-        llm=build_llm(config),
-        tts=build_tts(config),
+        stt=await build_stt(config, tenant_ctx=tenant_ctx),
+        llm=await build_llm(config, tenant_ctx=tenant_ctx),
+        tts=await build_tts(config, tenant_ctx=tenant_ctx),
         preemptive_generation=True,
     )
 

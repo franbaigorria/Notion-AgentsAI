@@ -34,16 +34,18 @@ class OpenAIRealtime:
         voice: str = "ash",
         temperature: float | None = None,
         speed: float | None = None,
+        api_key: str | None = None,
     ):
         self.model = model
         self.voice = voice
         self.temperature = temperature
         self.speed = speed
+        self.api_key = api_key
 
     def as_livekit_plugin(self) -> lk_realtime.RealtimeModel:
         """Retorna el plugin LiveKit para usar en AgentSession."""
         kwargs: dict = {
-            "api_key": os.environ["OPENAI_API_KEY"],
+            "api_key": self.api_key or os.environ["OPENAI_API_KEY"],
             "model": self.model,
             "voice": self.voice,
         }

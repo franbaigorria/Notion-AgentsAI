@@ -46,10 +46,12 @@ class DeepgramTTS(TTSProvider):
         model: str = "aura-2-antonia-es",
         encoding: str = "linear16",
         sample_rate: int = 24000,
+        api_key: str | None = None,
     ):
         self.model = model
         self.encoding = encoding
         self.sample_rate = sample_rate
+        self.api_key = api_key
 
     def as_livekit_plugin(self):
         """Retorna el plugin LiveKit para usar en AgentSession.
@@ -61,7 +63,7 @@ class DeepgramTTS(TTSProvider):
             model=self.model,
             encoding=self.encoding,
             sample_rate=self.sample_rate,
-            api_key=os.environ["DEEPGRAM_API_KEY"],
+            api_key=self.api_key or os.environ["DEEPGRAM_API_KEY"],
         )
         return _make_preprocessed_tts(plugin, strip_tone_tags)
 

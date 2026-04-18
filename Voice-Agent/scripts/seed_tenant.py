@@ -13,6 +13,23 @@ Idempotency:
   - If ``--tenant-id`` is omitted, a fresh UUID is generated and a new tenant
     is created.
 
+Vault key naming convention (8 canonical keys — one per provider):
+
+    | Vault key     | Provider (STT/LLM/TTS)             | Replaces env var              |
+    |---------------|------------------------------------|-------------------------------|
+    | deepgram      | Deepgram STT + TTS                 | DEEPGRAM_API_KEY              |
+    | elevenlabs    | ElevenLabs STT + TTS               | ELEVEN_API_KEY                |
+    | claude        | Anthropic Claude LLM               | ANTHROPIC_API_KEY             |
+    | openai        | OpenAI LLM + STT + TTS + Realtime  | OPENAI_API_KEY                |
+    | groq          | Groq LLM                           | GROQ_API_KEY                  |
+    | cartesia      | Cartesia TTS                       | CARTESIA_API_KEY              |
+    | google        | Gemini LLM + GeminiTTS             | GOOGLE_API_KEY / GEMINI_API_KEY |
+    | fish_audio    | Fish Audio TTS                     | FISH_AUDIO_API_KEY            |
+
+Operators should seed ONE entry per provider regardless of layer (e.g. Deepgram
+used for both STT and TTS → single `deepgram` secret). See
+``docs/runbooks/railway-deploy.md`` for the full multi-tenant deploy flow.
+
 Usage::
 
     export DATABASE_URL="postgresql://user:pw@host:5432/db"   # or asyncpg://

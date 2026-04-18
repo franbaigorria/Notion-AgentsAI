@@ -36,7 +36,12 @@ _TONE_TAG_RE = re.compile(r'</?tone:(\w+)>\s*')
 
 
 class FishSpeechTTS(TTSProvider, tts.TTS):
-    def __init__(self, voice_id: str = "", model: str = "s2-pro"):
+    def __init__(
+        self,
+        voice_id: str = "",
+        model: str = "s2-pro",
+        api_key: str | None = None,
+    ):
         super().__init__(
             capabilities=tts.TTSCapabilities(streaming=False),
             sample_rate=44100,
@@ -45,7 +50,7 @@ class FishSpeechTTS(TTSProvider, tts.TTS):
         self.voice_id = voice_id
         self.model_name = model
         self.api_url = os.environ.get("FISH_AUDIO_URL", "https://api.fish.audio/v1/tts")
-        self.api_key = os.environ.get("FISH_AUDIO_API_KEY", "")
+        self.api_key = api_key or os.environ.get("FISH_AUDIO_API_KEY", "")
 
     def preprocess_text(self, text: str) -> str:
         """Mapea <tone:X> → Fish Audio inline tags. Tags desconocidos o de cierre se eliminan."""

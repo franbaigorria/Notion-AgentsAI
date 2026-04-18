@@ -21,15 +21,17 @@ class ElevenLabsSTT(STTProvider):
         model: str = "scribe_v2_realtime",
         language: str = "es",
         keyterms: list[str] | None = None,
+        api_key: str | None = None,
     ):
         self.model = model
         self.language = language
         self.keyterms = keyterms
+        self.api_key = api_key
 
     def as_livekit_plugin(self) -> lk_elevenlabs.STT:
         """Retorna el plugin LiveKit para usar en AgentSession."""
         return lk_elevenlabs.STT(
-            api_key=os.environ["ELEVENLABS_API_KEY"],
+            api_key=self.api_key or os.environ["ELEVENLABS_API_KEY"],
             model_id=self.model,
             language_code=self.language,
         )

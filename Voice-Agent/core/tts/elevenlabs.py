@@ -34,6 +34,7 @@ class ElevenLabsTTS(TTSProvider):
         style: float | None = None,
         speed: float | None = None,
         apply_text_normalization: str = "auto",
+        api_key: str | None = None,
     ):
         self.voice_id = voice_id
         self.model = model
@@ -42,6 +43,7 @@ class ElevenLabsTTS(TTSProvider):
         self.style = style
         self.speed = speed
         self.apply_text_normalization = apply_text_normalization
+        self.api_key = api_key
 
     def _build_voice_settings(self) -> lk_elevenlabs.VoiceSettings | None:
         if self.stability is None and self.similarity_boost is None:
@@ -61,7 +63,7 @@ class ElevenLabsTTS(TTSProvider):
         """
         voice_settings = self._build_voice_settings()
         kwargs: dict = {
-            "api_key": os.environ["ELEVENLABS_API_KEY"],
+            "api_key": self.api_key or os.environ["ELEVENLABS_API_KEY"],
             "voice_id": self.voice_id,
             "model": self.model,
             "apply_text_normalization": self.apply_text_normalization,

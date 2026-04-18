@@ -23,13 +23,22 @@ _COST_PER_SECOND_USD = 0.0059 / 60
 
 
 class DeepgramSTT(STTProvider):
-    def __init__(self, model: str = "nova-2", language: str = "es"):
+    def __init__(
+        self,
+        model: str = "nova-2",
+        language: str = "es",
+        api_key: str | None = None,
+    ):
         self.model = model
         self.language = language
+        self.api_key = api_key
 
     def as_livekit_plugin(self) -> lk_deepgram.STT:
         """Retorna el plugin LiveKit para usar en AgentSession."""
-        return lk_deepgram.STT(model=self.model, language=self.language)
+        kwargs: dict = {"model": self.model, "language": self.language}
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        return lk_deepgram.STT(**kwargs)
 
     async def transcribe(self, audio: bytes, language: str) -> STTResult:
         """Transcripción directa via API de Deepgram (sin LiveKit pipeline).

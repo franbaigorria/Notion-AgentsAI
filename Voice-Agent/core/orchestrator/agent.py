@@ -40,6 +40,50 @@ load_dotenv()
 
 VERTICALS_DIR = Path(__file__).parent.parent.parent / "verticals"
 
+# ---------------------------------------------------------------------------
+# Multi-tenant vault key resolution
+# ---------------------------------------------------------------------------
+# Maps a provider name (as used in config.yaml → stt_provider / llm_provider /
+# tts_provider) to the canonical vault key operators use when seeding secrets
+# via scripts/seed_tenant.py. One key per provider regardless of layer.
+# Gemini/Google intentionally share the "google" vault key — unifies the two
+# historical env vars (GOOGLE_API_KEY + GEMINI_API_KEY). Ollama is local and
+# carries an empty-string sentinel meaning "no key needed".
+# ---------------------------------------------------------------------------
+
+_PROVIDER_VAULT_KEYS: dict[str, str] = {
+    "deepgram": "deepgram",
+    "elevenlabs": "elevenlabs",
+    "claude": "claude",
+    "openai": "openai",
+    "groq": "groq",
+    "cartesia": "cartesia",
+    "gemini": "google",
+    "fish_speech": "fish_audio",
+    "ollama": "",
+}
+
+
+async def _resolve_api_key(
+    provider_name: str, tenant_ctx: "TenantContext | None"
+) -> str | None:
+    """Resolve a provider's API key via the tenant vault, or None for env fallback.
+
+    Returns None (signalling "let the LiveKit plugin read its env var") when:
+      - tenant_ctx is None (YAML mode, USE_TENANT_REGISTRY off)
+      - provider_name is not in _PROVIDER_VAULT_KEYS (unknown provider)
+      - the provider has an empty-string sentinel (e.g. ollama)
+
+    Otherwise awaits vault.get via TenantContext.get_secret and returns the
+    plaintext value. Propagates SecretNotFound if the tenant lacks the secret.
+    """
+    if tenant_ctx is None:
+        return None
+    vault_key = _PROVIDER_VAULT_KEYS.get(provider_name, "")
+    if not vault_key:
+        return None
+    return await tenant_ctx.get_secret(vault_key)
+
 
 def load_vertical(name: str) -> dict:
     """Carga config.yaml y persona.md del vertical indicado."""
@@ -56,28 +100,34 @@ def load_vertical(name: str) -> dict:
     return config
 
 
-def build_stt(config: dict):
+async def build_stt(config: dict, *, tenant_ctx: "TenantContext | None" = None):
+    """Build STT provider. Resolves api_key via tenant vault when tenant_ctx is present."""
     from core.stt.deepgram import DeepgramSTT
     from core.stt.elevenlabs_stt import ElevenLabsSTT
     from core.stt.openai_stt import OpenAISTT
+
+    name = config.get("stt_provider", "deepgram")
+    api_key = await _resolve_api_key(name, tenant_ctx)
 
     providers = {
         "deepgram": lambda: DeepgramSTT(
             model=config.get("stt_model", "nova-3"),
             language=config.get("language", "es"),
+            api_key=api_key,
         ),
         "elevenlabs": lambda: ElevenLabsSTT(
             model=config.get("stt_model", "scribe_v2_realtime"),
             language=config.get("language", "es"),
+            api_key=api_key,
         ),
         "openai": lambda: OpenAISTT(
             model=config.get("stt_model", "gpt-4o-mini-transcribe"),
             language=config.get("language", "es"),
             use_realtime=config.get("stt_use_realtime", True),
+            api_key=api_key,
         ),
     }
 
-    name = config.get("stt_provider", "deepgram")
     if name not in providers:
         raise ValueError(f"STT provider desconocido: '{name}'. Disponibles: {list(providers)}")
 
@@ -89,48 +139,73 @@ def is_realtime_mode(config: dict) -> bool:
     return config.get("mode", "pipeline") == "realtime"
 
 
-def build_realtime_llm(config: dict):
-    """Construye el modelo Realtime speech-to-speech de OpenAI."""
+async def build_realtime_llm(
+    config: dict, *, tenant_ctx: "TenantContext | None" = None
+):
+    """Construye el modelo Realtime speech-to-speech de OpenAI.
+
+    Resuelve la API key via vault cuando tenant_ctx está presente. Realtime
+    usa el mismo proveedor que OpenAI (vault key 'openai').
+    """
     from core.llm.openai_realtime import OpenAIRealtime
 
+    api_key = await _resolve_api_key("openai", tenant_ctx)
     realtime_cfg = config.get("realtime", {})
     return OpenAIRealtime(
         model=realtime_cfg.get("model", "gpt-4o-mini-realtime-preview"),
         voice=realtime_cfg.get("voice", "ash"),
         temperature=realtime_cfg.get("temperature"),
         speed=realtime_cfg.get("speed"),
+        api_key=api_key,
     ).as_livekit_plugin()
 
 
-def build_llm(config: dict):
+async def build_llm(config: dict, *, tenant_ctx: "TenantContext | None" = None):
+    """Build LLM provider. Resolves api_key via tenant vault when tenant_ctx is present."""
     from core.llm.claude import ClaudeLLM
     from core.llm.gemini import GeminiLLM
     from core.llm.groq import GroqLLM
     from core.llm.ollama import OllamaLLM
     from core.llm.openai import OpenAILLM
 
+    name = config.get("llm_provider", "claude")
+    api_key = await _resolve_api_key(name, tenant_ctx)
+
     providers = {
-        "claude": lambda: ClaudeLLM(model=config.get("llm_model", "claude-sonnet-4-6")),
-        "openai": lambda: OpenAILLM(model=config.get("llm_model", "gpt-4o-mini")),
-        "ollama": lambda: OllamaLLM(model=config.get("llm_model", "gemma4:e4b")),
-        "groq": lambda: GroqLLM(model=config.get("llm_model", "llama-3.1-8b-instant")),
-        "gemini": lambda: GeminiLLM(model=config.get("llm_model", "gemini-3.1-flash-lite")),
+        "claude": lambda: ClaudeLLM(
+            model=config.get("llm_model", "claude-sonnet-4-6"), api_key=api_key
+        ),
+        "openai": lambda: OpenAILLM(
+            model=config.get("llm_model", "gpt-4o-mini"), api_key=api_key
+        ),
+        "ollama": lambda: OllamaLLM(
+            model=config.get("llm_model", "gemma4:e4b"), api_key=api_key
+        ),
+        "groq": lambda: GroqLLM(
+            model=config.get("llm_model", "llama-3.1-8b-instant"), api_key=api_key
+        ),
+        "gemini": lambda: GeminiLLM(
+            model=config.get("llm_model", "gemini-3.1-flash-lite"), api_key=api_key
+        ),
     }
 
-    name = config.get("llm_provider", "claude")
     if name not in providers:
         raise ValueError(f"LLM provider desconocido: '{name}'. Disponibles: {list(providers)}")
 
     return providers[name]().as_livekit_plugin()
 
 
-def build_tts(config: dict):
+async def build_tts(config: dict, *, tenant_ctx: "TenantContext | None" = None):
+    """Build TTS provider. Resolves api_key via tenant vault when tenant_ctx is present."""
     from core.tts.deepgram import DeepgramTTS
     from core.tts.elevenlabs import ElevenLabsTTS
     from core.tts.cartesia import CartesiaTTS
     from core.tts.fish_speech import FishSpeechTTS
     from core.tts.gemini_tts import GeminiTTS
     from core.tts.openai_tts import OpenAITTS
+
+    name = config.get("tts_provider", "elevenlabs")
+    api_key = await _resolve_api_key(name, tenant_ctx)
 
     voice_settings = config.get("voice_settings", {})
     providers = {
@@ -142,32 +217,37 @@ def build_tts(config: dict):
             style=voice_settings.get("style"),
             speed=voice_settings.get("speed"),
             apply_text_normalization=config.get("apply_text_normalization", "auto"),
+            api_key=api_key,
         ),
         "deepgram": lambda: DeepgramTTS(
             model=config.get("tts_model", "aura-2-antonia-es"),
+            api_key=api_key,
         ),
         "cartesia": lambda: CartesiaTTS(
             voice_id=os.environ.get("CARTESIA_VOICE_ID") or config.get("voice_id", ""),
             model=config.get("tts_model", "sonic-multilingual"),
+            api_key=api_key,
         ),
         "fish_speech": lambda: FishSpeechTTS(
             voice_id=os.environ.get("FISH_AUDIO_VOICE_ID") or config.get("voice_id", ""),
             model=config.get("tts_model", ""),
+            api_key=api_key,
         ),
         "openai": lambda: OpenAITTS(
             voice=config.get("voice_id", "ash"),
             model=config.get("tts_model", "gpt-4o-mini-tts"),
             instructions=config.get("tts_instructions"),
             speed=voice_settings.get("speed", 1.0),
+            api_key=api_key,
         ),
         "gemini": lambda: GeminiTTS(
             voice=config.get("voice_id", "Charon"),
             model=config.get("tts_model", "gemini-3.1-flash-tts-preview"),
             instructions=config.get("tts_instructions"),
+            api_key=api_key,
         ),
     }
 
-    name = config.get("tts_provider", "elevenlabs")
     if name not in providers:
         raise ValueError(f"TTS provider desconocido: '{name}'. Disponibles: {list(providers)}")
 
