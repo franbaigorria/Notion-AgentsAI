@@ -7,6 +7,38 @@ under 30 minutes.
 
 ---
 
+## Current MVP mode: thin tenant
+
+For the clinic MVP, Railway remains the target runtime because US-East latency
+is materially better than local execution. The current MVP path keeps the
+tenant registry/vault dormant and uses the YAML vertical config plus Railway
+environment variables:
+
+```bash
+USE_TENANT_REGISTRY=false
+AGENT_MODE=pipeline
+LIVEKIT_URL=...
+LIVEKIT_API_KEY=...
+LIVEKIT_API_SECRET=...
+DEEPGRAM_API_KEY=...
+ANTHROPIC_API_KEY=...
+ELEVENLABS_API_KEY=...
+ELEVENLABS_VOICE_ID=...   # optional if config.yaml has the selected voice_id
+```
+
+Provider stack frozen for this validation loop:
+
+| Layer | Provider/model |
+|-------|----------------|
+| STT | Deepgram `nova-3` |
+| LLM | Claude `claude-haiku-4-5-20251001` |
+| TTS | ElevenLabs `eleven_flash_v2_5` |
+
+Only use the multi-tenant seed/vault flow below when explicitly testing
+`USE_TENANT_REGISTRY=true`.
+
+---
+
 ## Prerequisites
 
 Accounts:

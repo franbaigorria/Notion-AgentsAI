@@ -45,6 +45,7 @@ from livekit.api import (
 
 # Agent ParticipantKind from livekit-protocol (enum int). See livekit_models.proto.
 _PARTICIPANT_KIND_AGENT = 2
+_LIVEKIT_AGENT_NAME_ATTRIBUTE = "lk.agent.name"
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +173,11 @@ async def dispatch_and_wait(
                 ListParticipantsRequest(room=room)
             )
             for p in participants.participants:
-                if getattr(p, "kind", None) == _PARTICIPANT_KIND_AGENT:
+                attributes = getattr(p, "attributes", {}) or {}
+                if (
+                    getattr(p, "kind", None) == _PARTICIPANT_KIND_AGENT
+                    and attributes.get(_LIVEKIT_AGENT_NAME_ATTRIBUTE) == agent_name
+                ):
                     agent_identity = p.identity
                     break
             if agent_identity is not None:

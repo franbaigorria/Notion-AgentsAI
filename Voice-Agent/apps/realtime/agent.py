@@ -28,7 +28,11 @@ import os
 from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
 from livekit.agents.metrics import log_metrics
 
-from core.orchestrator.agent import build_realtime_llm, load_vertical
+from core.orchestrator.agent import (
+    build_realtime_llm,
+    build_tenant_context_from_env,
+    load_vertical,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,15 +75,10 @@ async def entrypoint(ctx: JobContext) -> None:
     tenant_id = _extract_tenant_id_from_job(ctx)
 
     if tenant_id is not None:
-        from core.orchestrator.agent import build_tenant_context_from_env
-        from core.vault.fernet_postgres import FernetPostgresVault
-
-        # Vault manages its own sessions internally — no session wrapper needed here.
-        vault = FernetPostgresVault(caller_context="realtime_agent")
-        tenant_ctx = await build_tenant_context_from_env(
-            tenant_id=tenant_id,
-            vault=vault,
-        )
+        # build_tenant_context_from_env() checks USE_TENANT_REGISTRY before
+        # constructing DB/vault dependencies. This keeps the thin-tenant MVP
+        # path DB-free even when test_client.py still sends tenant_id metadata.
+        tenant_ctx = await build_tenant_context_from_env(tenant_id=tenant_id)
 
     if tenant_ctx is not None:
         logger.info(
@@ -113,7 +112,12 @@ async def entrypoint(ctx: JobContext) -> None:
 
 
 def main():
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
+    cli.run_app(
+        WorkerOptions(
+            entrypoint_fnc=entrypoint,
+            agent_name=os.environ.get("AGENT_NAME", "realtime-agent"),
+        )
+    )
 
 
 if __name__ == "__main__":

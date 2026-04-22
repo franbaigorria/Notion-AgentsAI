@@ -145,6 +145,7 @@ async def test_dispatch_and_wait_calls_create_dispatch() -> None:
     fake_participant_agent = MagicMock()
     fake_participant_agent.identity = "agent-abc"
     fake_participant_agent.kind = 2  # AGENT kind (livekit enum)
+    fake_participant_agent.attributes = {"lk.agent.name": "pipeline-agent"}
 
     empty_response = MagicMock()
     empty_response.participants = []
@@ -186,6 +187,52 @@ async def test_dispatch_and_wait_calls_create_dispatch() -> None:
     assert result["agent_identity"] == "agent-abc"
 
     mock_lkapi.aclose.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_and_wait_ignores_agent_with_wrong_name() -> None:
+    """Explicit dispatch must wait for the requested named worker, not any agent."""
+    tid = uuid.uuid4()
+    fake_dispatch = MagicMock()
+    fake_dispatch.id = "disp-123"
+
+    wrong_agent = MagicMock()
+    wrong_agent.identity = "wrong-agent"
+    wrong_agent.kind = 2
+    wrong_agent.attributes = {"lk.agent.name": "realtime-agent"}
+
+    right_agent = MagicMock()
+    right_agent.identity = "pipeline-agent-abc"
+    right_agent.kind = 2
+    right_agent.attributes = {"lk.agent.name": "pipeline-agent"}
+
+    wrong_response = MagicMock()
+    wrong_response.participants = [wrong_agent]
+    right_response = MagicMock()
+    right_response.participants = [wrong_agent, right_agent]
+
+    mock_lkapi = MagicMock()
+    mock_lkapi.agent_dispatch = MagicMock()
+    mock_lkapi.agent_dispatch.create_dispatch = AsyncMock(return_value=fake_dispatch)
+    mock_lkapi.room = MagicMock()
+    mock_lkapi.room.list_participants = AsyncMock(
+        side_effect=[wrong_response, right_response]
+    )
+    mock_lkapi.aclose = AsyncMock()
+
+    with patch("scripts.test_client.LiveKitAPI", return_value=mock_lkapi):
+        result = await dispatch_and_wait(
+            livekit_url="wss://fake",
+            api_key="k",
+            api_secret="s" * 32,
+            tenant_id=tid,
+            room="r1",
+            agent_name="pipeline-agent",
+            timeout_seconds=5,
+            poll_interval=0.01,
+        )
+
+    assert result["agent_identity"] == "pipeline-agent-abc"
 
 
 @pytest.mark.asyncio
