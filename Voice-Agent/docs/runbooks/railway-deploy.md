@@ -17,6 +17,7 @@ environment variables:
 ```bash
 USE_TENANT_REGISTRY=false
 AGENT_MODE=pipeline
+# Leave AGENT_NAME unset/empty in MVP mode so LiveKit auto-dispatches the worker.
 LIVEKIT_URL=...
 LIVEKIT_API_KEY=...
 LIVEKIT_API_SECRET=...
@@ -36,6 +37,11 @@ Provider stack frozen for this validation loop:
 
 Only use the multi-tenant seed/vault flow below when explicitly testing
 `USE_TENANT_REGISTRY=true`.
+
+Pending for the multi-tenant path:
+- Re-enable named workers via `AGENT_NAME=pipeline-agent` / `realtime-agent`.
+- Re-enable explicit dispatch via `scripts/test_client.py`.
+- Re-enable Alembic migrations before deploy when Postgres registry/vault is active.
 
 ---
 
@@ -66,9 +72,11 @@ railway link                     # link current dir to the new project
 
 ---
 
-## Step 2: Provision Postgres
+## Step 2: Provision Postgres (multi-tenant only)
 
-In the Railway dashboard (or via CLI), add the **PostgreSQL** plugin. Railway
+Skip this step for the thin-tenant clinic MVP.
+
+For the multi-tenant path, add the **PostgreSQL** plugin. Railway
 injects `DATABASE_URL` with the driver-less scheme `postgresql://…`. The engine
 auto-rewrites to `postgresql+asyncpg://…` at boot — no manual override needed.
 
@@ -111,16 +119,13 @@ railway up
 
 What happens:
 1. Railway builds the image from `Dockerfile`.
-2. `railway.json` → `deploy.preDeployCommand` runs `uv run alembic upgrade head`
-   on the new release before the container starts serving.
-3. The worker boots via `CMD ["uv", "run", "python", "-m", "apps.launcher", "start"]`
+2. The worker boots via `CMD ["uv", "run", "python", "-m", "apps.launcher", "start"]`
    and connects outbound to LiveKit Cloud.
 
 Verify:
 
 ```bash
-railway logs                     # should show "DATABASE_URL scheme rewritten to postgresql+asyncpg://"
-                                 # (if Railway injected postgresql://) and the agent worker lifecycle
+railway logs                     # should show the launcher mode and LiveKit worker lifecycle
 ```
 
 ---
@@ -188,7 +193,11 @@ Idempotent re-run (rotate a key or update tenant metadata):
 
 ---
 
-## Step 6: Dispatch the agent + join as operator
+## Step 6: Dispatch the agent + join as operator (multi-tenant only)
+
+Skip this step for auto-dispatch MVP testing. In MVP mode, keep `AGENT_NAME`
+unset and create/join a LiveKit room the same way as the original manual tests;
+the unnamed worker should join automatically.
 
 Use `scripts/test_client.py` LOCALLY (it talks to LiveKit Cloud, not Railway):
 
@@ -258,7 +267,7 @@ uv run python scripts/test_client.py --tenant-id <new UUID>
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | Worker crashes at boot with `MasterKeyMissingError` | `VAULT_MASTER_KEY` not set | Set the secret in Railway → redeploy |
-| Migrations fail in preDeploy | Postgres plugin not linked, or DATABASE_URL malformed | Confirm `${{Postgres.DATABASE_URL}}` binding |
+| Migrations fail in preDeploy | Multi-tenant migrations were re-enabled without `DATABASE_URL` | Either set `${{Postgres.DATABASE_URL}}` or disable preDeploy for thin-tenant MVP |
 | `test_client.py` times out waiting for agent | `LIVEKIT_API_KEY`/`SECRET` mismatch between dispatch and worker | Ensure both use the SAME LiveKit project |
 | Agent joins but crashes on first utterance | Tenant missing a provider secret | Re-run `seed_tenant.py` with all 3 `--secret` flags |
 | `TenantNotFound` in worker logs | Wrong tenant UUID in dispatch metadata | Re-check UUID from Step 5 output |

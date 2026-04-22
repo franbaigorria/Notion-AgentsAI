@@ -118,9 +118,12 @@ For key rotation procedures, see `docs/runbooks/master-key-rotation.md`.
 
 ## 🚀 Try it on Railway
 
-End-to-end walkthrough from zero (Railway project → Postgres plugin → secrets →
-deploy → seed a tenant → dispatch the agent and join as operator) is in
+End-to-end walkthrough from zero is in
 **`docs/runbooks/railway-deploy.md`**.
+
+Current MVP mode is **thin-tenant**: Railway runtime + YAML vertical config +
+global provider env vars. Postgres/vault seeding and explicit dispatch are
+deferred until the multi-tenant path is re-enabled.
 
 Key scripts:
 
@@ -128,8 +131,8 @@ Key scripts:
 - `scripts/test_client.py` — dispatch the agent via `LiveKitAPI` and generate a
   Playground URL so the operator can join the room and talk to the agent.
 
-`railway.json` runs `uv run alembic upgrade head` as the pre-deploy command, so
-migrations apply automatically on every deploy.
+`railway.json` intentionally does **not** run Alembic during MVP deploys, because
+the thin-tenant runtime does not require Postgres.
 
 ---
 

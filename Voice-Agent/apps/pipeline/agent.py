@@ -127,7 +127,7 @@ def main():
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
-            agent_name=os.environ.get("AGENT_NAME", "pipeline-agent"),
+            agent_name=os.environ.get("AGENT_NAME", ""),
         )
     )
 
